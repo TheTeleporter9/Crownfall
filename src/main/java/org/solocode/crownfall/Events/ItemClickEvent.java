@@ -23,11 +23,11 @@ import org.solocode.crownfall.Enitys.Troops.TroopType;
 
 import java.util.EventListener;
 
-public class ClickEvent implements EventListener, Listener {
+public class ItemClickEvent implements EventListener, Listener {
 
     private final Troop troop;
 
-    public ClickEvent(Troop troop) {
+    public ItemClickEvent(Troop troop) {
         this.troop = troop;
     }
 
@@ -65,10 +65,13 @@ public class ClickEvent implements EventListener, Listener {
             }
 
             if(event.getItem().getType() == Material.STICK) {
-                player.sendMessage(Component.text("Go To : " + block.getLocation()));
                 for(Entity entity : troop.getEntityByGroup(event.getPlayer().getWorld())) {
                     troop.setGoalPoint(block.getLocation(), entity);
                 }
+            }
+
+            if(event.getItem().getType() == Material.BREEZE_ROD) {
+
             }
 
         }

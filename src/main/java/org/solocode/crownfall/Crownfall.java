@@ -1,5 +1,6 @@
 package org.solocode.crownfall;
 
+import io.papermc.paper.command.brigadier.BasicCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Mob;
@@ -7,8 +8,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.solocode.crownfall.Camera.CameraManager;
+import org.solocode.crownfall.Commands.startCommand;
 import org.solocode.crownfall.Enitys.Troops.Troop;
-import org.solocode.crownfall.Events.ClickEvent;
+import org.solocode.crownfall.Events.ItemClickEvent;
 import org.solocode.crownfall.Events.camMove;
 
 import java.util.Map;
@@ -32,11 +34,16 @@ public final class Crownfall extends JavaPlugin {
         camManager = new CameraManager();
         troop = new Troop(this);
         addEventListeners();
+        addCommands();
+    }
+
+    private void addCommands() {
+        registerCommand("start", new startCommand());
     }
 
     private void addEventListeners() {
         getServer().getPluginManager().registerEvents(new camMove(), this);
-        getServer().getPluginManager().registerEvents(new ClickEvent(troop), this);
+        getServer().getPluginManager().registerEvents(new ItemClickEvent(troop), this);
     }
 
     @Override

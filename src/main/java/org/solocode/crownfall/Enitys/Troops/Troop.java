@@ -15,7 +15,9 @@ import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.EnchantingInventory;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
+import org.solocode.crownfall.Camera.Selection;
 import org.solocode.crownfall.Crownfall;
+import org.solocode.crownfall.Enitys.UI.Markers;
 
 import java.util.*;
 
@@ -33,8 +35,6 @@ public class Troop {
     }
 
     public void createNewTroop(Location loc, TroopType type) {
-
-
         Zombie zombie = loc.getWorld().spawn(loc.add(0, 1, 0), Zombie.class);
 
         zombie.customName(
@@ -113,13 +113,14 @@ public class Troop {
         mobTargets.put(mob, target);
     }
 
-    public void updateMob(Mob mob, Location target) {
+    public void updateMob(Mob mob, Location target, Markers marker) {
 
         double distance = mob.getLocation().distance(target);
 
         if (distance <= 1.5) {
-            mob.setAI(false); // STOP HERE
+            mob.setAI(false);
             mob.setVelocity(new Vector(0, 0, 0));
+            marker.ma
             return;
         }
 
