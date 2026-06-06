@@ -1,6 +1,8 @@
 package org.solocode.crownfall;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -8,6 +10,9 @@ import org.solocode.crownfall.Camera.CameraManager;
 import org.solocode.crownfall.Enitys.Troops.Troop;
 import org.solocode.crownfall.Events.ClickEvent;
 import org.solocode.crownfall.Events.camMove;
+
+import java.util.Map;
+import java.util.UUID;
 
 public final class Crownfall extends JavaPlugin {
 
@@ -25,6 +30,7 @@ public final class Crownfall extends JavaPlugin {
 
     private void initSystems() {
         camManager = new CameraManager();
+        troop = new Troop(this);
         addEventListeners();
     }
 
@@ -43,5 +49,12 @@ public final class Crownfall extends JavaPlugin {
             camManager.setupCamera(player);
             camManager.updateCamera(player);
         }
+
+        for(Map.Entry<Mob, Location> entry : troop.mobTargets.entrySet()) {
+           Mob mob = entry.getKey();
+           Location loc = entry.getValue();
+            troop.updateMob(mob, loc);
+        }
+
     }
 }
