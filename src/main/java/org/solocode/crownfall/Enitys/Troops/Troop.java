@@ -120,7 +120,7 @@ public class Troop {
         if (distance <= 1.5) {
             mob.setAI(false);
             mob.setVelocity(new Vector(0, 0, 0));
-            marker.ma
+            marker.removeMarker(marker.getArmorStand());
             return;
         }
 

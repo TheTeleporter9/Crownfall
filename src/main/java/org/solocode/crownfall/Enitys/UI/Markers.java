@@ -25,12 +25,13 @@ import java.util.UUID;
 
 public class Markers {
 
-    List<ArmorStand> markers = new ArrayList<>();
+    public List<ArmorStand> markers = new ArrayList<>();
+    ArmorStand stand;
 
     public void createMarker(LocationType type, Location location) {
         World world = location.getWorld();
 
-        ArmorStand stand = (ArmorStand) world.spawn(location, ArmorStand.class);
+        stand = (ArmorStand) world.spawn(location, ArmorStand.class);
 
         stand.setInvisible(true);
         stand.setMarker(true);
@@ -46,7 +47,15 @@ public class Markers {
     }
 
     public void removeMarker(ArmorStand stand) {
-        if(stand == null)
+        if(stand == null || !stand.isValid()) return;
+
+        boolean wasInList = markers.remove(stand);
+
+        if (wasInList) stand.remove();
+    }
+
+    public ArmorStand getArmorStand() {
+        return stand;
     }
 
     public void updateMarker(World world) {

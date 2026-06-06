@@ -18,8 +18,10 @@ import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 import org.solocode.crownfall.Crownfall;
 import org.solocode.crownfall.Enitys.EntityManger;
+import org.solocode.crownfall.Enitys.LocationType;
 import org.solocode.crownfall.Enitys.Troops.Troop;
 import org.solocode.crownfall.Enitys.Troops.TroopType;
+import org.solocode.crownfall.Enitys.UI.Markers;
 
 import java.util.EventListener;
 
@@ -67,6 +69,7 @@ public class ItemClickEvent implements EventListener, Listener {
             if(event.getItem().getType() == Material.STICK) {
                 for(Entity entity : troop.getEntityByGroup(event.getPlayer().getWorld())) {
                     troop.setGoalPoint(block.getLocation(), entity);
+                    new Markers().createMarker(LocationType.GOTO, block.getLocation());
                 }
             }
 

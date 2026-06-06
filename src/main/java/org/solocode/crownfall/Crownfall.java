@@ -3,6 +3,7 @@ package org.solocode.crownfall;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -10,9 +11,11 @@ import org.jetbrains.annotations.NotNull;
 import org.solocode.crownfall.Camera.CameraManager;
 import org.solocode.crownfall.Commands.startCommand;
 import org.solocode.crownfall.Enitys.Troops.Troop;
+import org.solocode.crownfall.Enitys.UI.Markers;
 import org.solocode.crownfall.Events.ItemClickEvent;
 import org.solocode.crownfall.Events.camMove;
 
+import javax.imageio.ImageWriteParam;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,6 +23,7 @@ public final class Crownfall extends JavaPlugin {
 
     private CameraManager camManager;
     private Troop troop;
+    private Markers markers;
 
     @Override
     public void onEnable() {
@@ -33,6 +37,7 @@ public final class Crownfall extends JavaPlugin {
     private void initSystems() {
         camManager = new CameraManager();
         troop = new Troop(this);
+        markers = new Markers();
         addEventListeners();
         addCommands();
     }
@@ -60,8 +65,12 @@ public final class Crownfall extends JavaPlugin {
         for(Map.Entry<Mob, Location> entry : troop.mobTargets.entrySet()) {
            Mob mob = entry.getKey();
            Location loc = entry.getValue();
-            troop.updateMob(mob, loc);
-        }
 
+           for(ArmorStand stand : markers.markers) {
+               troop.updateMob(mob, loc, (Markers) markers.getArmorStand());
+
+           }
+
+        }
     }
 }
