@@ -5,13 +5,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.solocode.crownfall.Camera.CameraManager;
+import org.solocode.crownfall.Enitys.Troops.Troop;
 import org.solocode.crownfall.Events.ClickEvent;
 import org.solocode.crownfall.Events.camMove;
 
 public final class Crownfall extends JavaPlugin {
 
     private CameraManager camManager;
-
+    private Troop troop;
 
     @Override
     public void onEnable() {
@@ -29,7 +30,7 @@ public final class Crownfall extends JavaPlugin {
 
     private void addEventListeners() {
         getServer().getPluginManager().registerEvents(new camMove(), this);
-        getServer().getPluginManager().registerEvents(new ClickEvent(), this);
+        getServer().getPluginManager().registerEvents(new ClickEvent(troop), this);
     }
 
     @Override

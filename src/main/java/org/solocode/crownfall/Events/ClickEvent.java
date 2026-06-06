@@ -25,6 +25,12 @@ import java.util.EventListener;
 
 public class ClickEvent implements EventListener, Listener {
 
+    private final Troop troop;
+
+    public ClickEvent(Troop troop) {
+        this.troop = troop;
+    }
+
     @EventHandler
     public void onItemClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
@@ -52,7 +58,6 @@ public class ClickEvent implements EventListener, Listener {
                     .count(10)
                     .receivers(32, true)
                     .spawn();
-            Troop troop = new Troop(new Crownfall());
 
             assert event.getItem() != null;
             if(event.getItem().getType() == Material.DIAMOND) {

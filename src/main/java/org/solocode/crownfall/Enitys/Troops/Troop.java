@@ -12,6 +12,7 @@ import org.bukkit.entity.Mob;
 import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.EnchantingInventory;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.Vector;
 import org.solocode.crownfall.Crownfall;
 
 import java.util.ArrayList;
@@ -28,29 +29,28 @@ public class Troop {
     }
 
     public void createNewTroop(Location loc, TroopType type) {
+
         World world = loc.getWorld();
 
-        Zombie zombie = (Zombie) world.createEntity(loc, Zombie.class);
+        Zombie zombie = (Zombie) world.spawn(loc, Zombie.class);
 
         zombie.customName(
-                Component
-                        .text("LvL 1")
+                Component.text("LvL 1")
                         .color(NamedTextColor.AQUA)
         );
 
         zombie.setHealth(10);
-        zombie.setAI(false);
+
+        zombie.setAI(true); // IMPORTANT
 
         globalCurrentID++;
         final int currentTroopID = globalCurrentID;
 
-        zombie.spawnAt(loc.add(0, 1, 0));
         zombie.getPersistentDataContainer().set(
                 troopKey,
                 PersistentDataType.INTEGER,
                 currentTroopID
         );
-
     }
 
     public boolean isInTroop(Entity entity, int ID) {
@@ -99,18 +99,17 @@ public class Troop {
         return matchedEntities;
     }
 
-    public void setGoalPoint(Location loc, Entity entity) {
+    public void setGoalPoint(Location target, Entity entity) {
          if(!(entity instanceof Mob mob)) {
              return;
          }
-         Pathfinder pathfinder = mob.getPathfinder();
 
-        boolean success = pathfinder.moveTo(loc, 1.2);
+        Vector dir = target.toVector()
+                .subtract(mob.getLocation().toVector())
+                .normalize();
+         mob.setVelocity(dir.multiply(0.35));
 
-        if (!success) {
-            mob.getWorld().getPlayers().forEach(p ->
-                    p.sendMessage("Pathfinding failed for " + mob.getType()));
-        }
+
     }
 
     public NamespacedKey getTroopKey() {
