@@ -1,15 +1,21 @@
 package org.solocode.crownfall.Camera;
 
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
-import org.solocode.crownfall.Crownfall;
 
+/**
+ * Manages camera behavior for players in the game.
+ * Handles camera setup and updates for in-game players.
+ */
 public class CameraManager {
 
-    private final float cameraPitch = 60f;
 
-
+    /**
+     * Updates the camera state for a player.
+     * Prevents vertical movement for in-game players.
+     *
+     * @param player the player to update the camera for
+     */
     public void updateCamera(Player player) {
 
         if (!player.getScoreboardTags().contains("inGame")) {
@@ -19,10 +25,14 @@ public class CameraManager {
         // Prevent vertical movement
         Vector velocity = player.getVelocity();
         velocity.setY(0);
-        player.setVelocity(velocity.multiply(10));
-
+        player.setVelocity(velocity);
     }
 
+    /**
+     * Sets up the camera for a player entering or leaving the game.
+     *
+     * @param player the player to setup the camera for
+     */
     public void setupCamera(Player player) {
 
         if (!player.getScoreboardTags().contains("inGame")) {

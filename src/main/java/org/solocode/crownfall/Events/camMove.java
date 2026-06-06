@@ -9,8 +9,17 @@ import org.bukkit.util.Vector;
 
 import java.util.EventListener;
 
+/**
+ * Handles player movement events.
+ * Manages vertical constraints for in-game players.
+ */
 public class camMove implements EventListener, Listener {
 
+    /**
+     * Handles player movement events.
+     *
+     * @param event the move event
+     */
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
@@ -19,23 +28,18 @@ public class camMove implements EventListener, Listener {
             return;
         }
 
-        Location location = event.getTo();
-
         Location to = event.getTo();
-
         to.setPitch(60F);
 
-        double y = location.getY();
+        double y = to.getY();
 
         if (y < -58) {
-            Vector push = new Vector(0, 1, 0); //push up
-
+            Vector push = new Vector(0, 0.5, 0);
             player.setVelocity(player.getVelocity().add(push));
         } else if (y > -40) {
-            Vector push = new Vector(0, -1, 0); //push down
+            Vector push = new Vector(0, -0.5, 0);
             player.setVelocity(player.getVelocity().add(push));
         }
-
     }
 
 }

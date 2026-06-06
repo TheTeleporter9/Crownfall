@@ -2,14 +2,16 @@ package org.solocode.crownfall.Commands;
 
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.solocode.crownfall.Camera.CameraManager;
 
-import java.nio.Buffer;
-
 public class startCommand implements BasicCommand {
+    /**
+     * Executes the start command.
+     *
+     * @param source the command source
+     * @param args   the command arguments
+     */
     @Override
     public void execute(CommandSourceStack source, String[] args) {
         // Make sure the command was executed by a player

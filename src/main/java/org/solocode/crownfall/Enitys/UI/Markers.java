@@ -10,42 +10,56 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.util.EulerAngle;
 import org.solocode.crownfall.Enitys.LocationType;
 
-import javax.print.DocFlavor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Manages visual markers displayed in the game world.
+ * Creates and animates armor stand markers for visual feedback.
+ */
 public class Markers {
 
     public List<ArmorStand> markers = new ArrayList<>();
-    ArmorStand stand;
+    private ArmorStand stand;
 
-    public void createMarker(LocationType type, Location location) {
+    /**
+     * Creates a visual marker at the specified location.
+     *
+     * @param type     the type of marker to create
+     * @param location the location to place the marker
+     * @return the created armor stand marker
+     */
+    public ArmorStand createMarker(LocationType type, Location location) {
         World world = location.getWorld();
 
         stand = (ArmorStand) world.spawn(location, ArmorStand.class);
 
-        stand.setInvisible(true);
-        stand.setMarker(true);
+        stand.setInvisible(false);
+        stand.setMarker(false);
         stand.setGravity(false);
         stand.setInvulnerable(true);
         stand.setSilent(true);
+        stand.setArms(true);
+        stand.setBasePlate(false);
+        stand.setSmall(true);
 
         stand.getEquipment().setHelmet(setupHead(getTextureValueByLocationType(type)));
-        stand.getEquipment().setHelmetDropChance(0);
 
         markers.add(stand);
-
+        return stand;
     }
 
+    /**
+     * Removes a marker from the game world.
+     *
+     * @param stand the armor stand marker to remove
+     */
     public void removeMarker(ArmorStand stand) {
         if(stand == null || !stand.isValid()) return;
 
@@ -54,33 +68,56 @@ public class Markers {
         if (wasInList) stand.remove();
     }
 
+    /**
+     * Gets the last created armor stand marker.
+     *
+     * @return the armor stand marker
+     */
     public ArmorStand getArmorStand() {
         return stand;
     }
 
+    /**
+     * Animates all markers by rotating their heads.
+     */
+    public void animateAllMarkers() {
+        // Create a copy to avoid ConcurrentModificationException
+        List<ArmorStand> markersCopy = new ArrayList<>(markers);
+        
+        for (ArmorStand stand : markersCopy) {
+            if (!stand.isValid() || stand.isDead()) {
+                markers.remove(stand);
+                continue;
+            }
+
+            EulerAngle currentPose = stand.getHeadPose();
+            double currentYaw = currentPose.getY();
+            currentYaw += Math.toRadians(5);
+
+            stand.setHeadPose(new EulerAngle(currentPose.getX(), currentYaw, currentPose.getZ()));
+        }
+    }
+
+    /**
+     * Updates all markers in the world.
+     *
+     * @param world the world containing the markers
+     */
     public void updateMarker(World world) {
             for (ArmorStand stand : world.getEntitiesByClass(ArmorStand.class)) {
 
                 if(!markers.contains(stand)) {
                     stand.remove();
                 }
-                animateMarker(stand);
             }
     }
 
-    private void animateMarker(ArmorStand stand) {
-
-        if(!stand.isValid() || stand.isDead()) {
-            return;
-        }
-
-        double currentYaw = 0.0;
-        currentYaw += Math.toRadians(5);
-
-        EulerAngle currentPose = stand.getHeadPose();
-        EulerAngle newPose = new EulerAngle(currentPose.getX(), currentYaw, currentPose.getZ());
-    }
-
+    /**
+     * Sets up a player head with a custom texture.
+     *
+     * @param textureValue the texture value string
+     * @return the configured item stack
+     */
     private ItemStack setupHead(String textureValue) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
 
@@ -102,6 +139,12 @@ public class Markers {
         return head;
     }
 
+    /**
+     * Gets the texture value for a specific location type.
+     *
+     * @param type the location type
+     * @return the texture value string
+     */
     private String getTextureValueByLocationType(LocationType type) {
         switch (type) {
             case ATTACK -> {
