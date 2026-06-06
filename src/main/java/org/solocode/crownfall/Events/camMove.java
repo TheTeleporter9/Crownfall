@@ -7,19 +7,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.util.Vector;
 
-import java.util.EventListener;
+public class camMove implements Listener {
 
-/**
- * Handles player movement events.
- * Manages vertical constraints for in-game players.
- */
-public class camMove implements EventListener, Listener {
-
-    /**
-     * Handles player movement events.
-     *
-     * @param event the move event
-     */
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
@@ -29,17 +18,37 @@ public class camMove implements EventListener, Listener {
         }
 
         Location to = event.getTo();
-        to.setPitch(60F);
 
+        // We only override the pitch if the client tries to look up or down.
+        // Yaw (left/right) is completely untouched so they can spin freely.
+        if (to.getPitch() != 60F) {
+            to.setPitch(60F);
+            event.setTo(to);
+        }
+
+       
         double y = to.getY();
+        Vector vel = player.getVelocity();
 
-        if (y < -58) {
-            Vector push = new Vector(0, 0.5, 0);
-            player.setVelocity(player.getVelocity().add(push));
-        } else if (y > -40) {
-            Vector push = new Vector(0, -0.5, 0);
-            player.setVelocity(player.getVelocity().add(push));
+        if (y < -58.0) {
+            // Calculate how far below the line they are
+            double depth = -58.0 - y;
+
+            // Apply a smooth upward velocity (cap at 0.3)
+            double smoothPush = Math.min(0.3, depth * 0.15);
+
+            vel.setY(smoothPush);
+            player.setVelocity(vel);
+
+        } else if (y > -40.0) {
+            // Calculate how far above the line they are
+            double height = y - (-40.0);
+
+            // Apply a smooth downward velocity (cap at -0.3)
+            double smoothPush = Math.max(-0.3, -height * 0.15);
+
+            vel.setY(smoothPush);
+            player.setVelocity(vel);
         }
     }
-
 }

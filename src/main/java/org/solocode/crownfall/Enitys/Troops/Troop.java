@@ -2,6 +2,7 @@ package org.solocode.crownfall.Enitys.Troops;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.util.TriState;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -55,7 +56,7 @@ public class Troop {
 
         zombie.setHealth(10);
         zombie.setAI(true);
-        zombie.setVisualFire(false);
+        zombie.setVisualFire(TriState.FALSE);
         zombie.setInvulnerable(true);
 
         globalCurrentID++;
@@ -160,8 +161,9 @@ public class Troop {
             ArmorStand associatedMarker = mobMarkers.remove(mob);
             Bukkit.getLogger().info("Please remvoe!");
             if (associatedMarker != null) {
-                Bukkit.getLogger().info("removed marker!");
                 markers.removeMarker(associatedMarker);
+                ArmorStand stand = markers.getArmorStand();
+                stand.remove();
             }
             mobTargets.remove(mob);
             return;
