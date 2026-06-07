@@ -1,69 +1,52 @@
 package org.solocode.crownfall;
 
-import com.comphenix.protocol.ProtocolLib;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketListener;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.solocode.crownfall.Player.Camera.Camera;
-import org.solocode.crownfall.Player.Camera.CameraPacketListener;
-import org.solocode.crownfall.Player.Camera.EventListener.cameraInputListener;
-
 import org.solocode.crownfall.Commands.startCommand;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
+import org.solocode.crownfall.Player.Camera.CameraManager;
+import org.solocode.crownfall.Player.Camera.EventListener.cameraInputListener;
 
 public final class Crownfall extends JavaPlugin {
 
     public ProtocolManager protocolManager;
-    private final Map<UUID, Camera> activeCameras = new HashMap<>();
-    private CameraPacketListener cameraPacketListener = new CameraPacketListener(this);
+    private CameraManager cameraManager;
 
     @Override
     public void onEnable() {
-        getLogger().info("hello world");
+        getLogger().info("Crownfall enabled");
 
         protocolManager = ProtocolLibrary.getProtocolManager();
+        cameraManager = new CameraManager(this);
 
         initSystems();
-
-        Bukkit.getScheduler().runTaskTimer(this, this::loop, 0L, 1L);
+        Bukkit.getScheduler().runTaskTimer(this, this::update, 0L, 1L);
     }
 
+    @Override
+    public void onLoad() {
+        protocolManager = ProtocolLibrary.getProtocolManager();
+    }
 
     private void initSystems() {
-        CameraPacketListener.register();
-        addEventListeners();
-        addCommands();
+        cameraManager.initialize();
+        registerCommand("start", new startCommand(this, cameraManager));
+        getServer().getPluginManager().registerEvents(new cameraInputListener(this, cameraManager), this);
     }
 
-
-    private void addCommands() {
-        getCommand("start").setExecutor(new startCommand());
-    }
-
-
-    private void addEventListeners() {
-        getServer().getPluginManager().registerEvents(new cameraInputListener(this), this);
-
+    public void update() {
+        cameraManager.update();
     }
 
     @Override
     public void onDisable() {
-        for (Camera camera : ac)
+        cameraManager.disableAll();
+        getLogger().info("Crownfall disabled");
     }
 
-    public void loop() {
-
+    public CameraManager getCameraManager() {
+        return cameraManager;
     }
-
-
-    public Camera getCamera(Player player) { return activeCameras.get(player.getUniqueId()); }
-
 
 }
