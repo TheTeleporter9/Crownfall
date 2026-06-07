@@ -7,3 +7,12 @@ load: POSTWORLD
 
 authors: [ TheTeleporter9/Solocode ]
 website: Program workers to automate complex tasks that machines can't — powered by Create's kinetic network and kept running with a decent meal.
+
+dependencies:
+  bootstrap:
+
+  server:
+    # Add a required "RequiredPlugin" dependency, which will load AFTER your plugin.
+    ProtocolLib:
+      load: BEFORE
+      required: true
