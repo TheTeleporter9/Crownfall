@@ -6,12 +6,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.solocode.crownfall.Commands.startCommand;
 import org.solocode.crownfall.Player.Camera.CameraManager;
+import org.solocode.crownfall.Player.Camera.CameraPacketListener;
 import org.solocode.crownfall.Player.Camera.EventListener.cameraInputListener;
 
 public final class Crownfall extends JavaPlugin {
 
     public ProtocolManager protocolManager;
     private CameraManager cameraManager;
+    private CameraPacketListener cameraPacketListener;
 
     @Override
     public void onEnable() {
@@ -27,6 +29,7 @@ public final class Crownfall extends JavaPlugin {
     @Override
     public void onLoad() {
         protocolManager = ProtocolLibrary.getProtocolManager();
+        //cameraPacketListener.register(protocolManager);
     }
 
     private void initSystems() {
@@ -36,12 +39,12 @@ public final class Crownfall extends JavaPlugin {
     }
 
     public void update() {
-        cameraManager.update();
+       cameraManager.update();
     }
 
     @Override
     public void onDisable() {
-        cameraManager.disableAll();
+//        cameraManager.disableAll();
         getLogger().info("Crownfall disabled");
     }
 

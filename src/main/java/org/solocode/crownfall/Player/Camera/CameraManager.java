@@ -22,7 +22,7 @@ public class CameraManager {
 
 
     public void initialize() {
-        cameraPacketListener.register();
+        cameraPacketListener.register(plugin.protocolManager);
         plugin.getServer().getPluginManager().registerEvents(new cameraInputListener(plugin, this), plugin);
     }
 
@@ -36,16 +36,16 @@ public class CameraManager {
             PlayerInputType input = cameraPacketListener.getPlayerMovement(player);
             switch (input) {
                 case MOVE_FORWARD:
-                    camera.move(0, 1);
-                    break;
-                case MOVE_BACKWARD:
                     camera.move(0, -1);
                     break;
+                case MOVE_BACKWARD:
+                    camera.move(0, 1);
+                    break;
                 case MOVE_LEFT:
-                    camera.move(1, 0);
+                    camera.move(-1, 0);
                     break;
                 case MOVE_RIGHT:
-                    camera.move(-1, 0);
+                    camera.move(1, 0);
                     break;
                 case NONE:
                     camera.move(0, 0);

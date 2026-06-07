@@ -9,6 +9,7 @@ import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.solocode.crownfall.Crownfall;
 import org.solocode.crownfall.Player.Camera.Camera;
 import org.solocode.crownfall.Player.Camera.CameraManager;
+import org.solocode.crownfall.Player.Camera.PlayerInputType;
 
 public class cameraInputListener implements Listener {
     private final Crownfall plugin;
@@ -28,7 +29,7 @@ public class cameraInputListener implements Listener {
         Entity vehicle = player.getVehicle();
         if (vehicle == null || !vehicle.getScoreboardTags().contains("camera")) return;
         
-        if (!cameraManager.getPacketListener().isShifting(player)) return;
+//        if (!cameraManager.getPacketListener().isShifting(player)) return;
 
         event.setCancelled(true);
 
@@ -36,13 +37,15 @@ public class cameraInputListener implements Listener {
         int currentSlot = event.getNewSlot();
 
         boolean scrollUp = (currentSlot > previousSlot && !(previousSlot == 0 && currentSlot == 8)) || (previousSlot == 8 && currentSlot == 0);
-        player.sendMessage(Component.text("You are scrolling up: "+ scrollUp));
+        //player.sendMessage(Component.text("You are scrolling up: "+ scrollUp));
 
         Camera camera = cameraManager.getCamera(player);
         if (camera != null) {
-            camera.zoom(scrollUp, plugin);
+            player.sendMessage("ZOOM");
+            camera.zoom(scrollUp);
         }
     }
+
 
 
 }

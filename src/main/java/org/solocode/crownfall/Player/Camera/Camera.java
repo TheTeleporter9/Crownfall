@@ -16,8 +16,8 @@ public class Camera {
 
     private final double moveSpeed = 0.6;
     private final double zoomSpeed = 0.5;
-    private final int maxZoomHeight = 120;
-    private final int minZoomHeight = 10;
+    private final int maxZoomHeight = 2000;
+    private final int minZoomHeight = -10;
 
     private final int playerCameraRotaion = 75;
     public Camera(Player player) {
@@ -57,34 +57,31 @@ public class Camera {
     public void move(float sideways, float forward) {
         if (camera == null || !camera.isValid()) return;
 
-        Vector velocity = new Vector(-sideways, 0, -forward);
+        Vector movement = new Vector(-sideways, 0, -forward);
 
-        if (velocity.lengthSquared() > 0) {
-            velocity.normalize().multiply(moveSpeed);
+        if (movement.lengthSquared() > 0) {
+            movement.normalize().multiply(moveSpeed);
+
+            camera.teleport(
+                    camera.getLocation().add(movement)
+            );
         }
-
-        velocity.setY(camera.getVelocity().getY());
-        camera.setVelocity(velocity);
     }
 
-    public void zoom(boolean zoomOut, Crownfall plugin) {
-        if (camera == null || !camera.isValid()) return;
-
-        double currentY = camera.getLocation().getY();
-        Vector velocity = camera.getVelocity();
-
-        if(zoomOut && currentY < maxZoomHeight) {
-            camera.setVelocity(velocity.setY(zoomSpeed));
-        } else if (!zoomOut && currentY > minZoomHeight) {
-            camera.setVelocity(velocity.setY(-zoomSpeed));
+    public void zoom(boolean zoomOut) {
+        if (camera == null || !camera.isValid()) {
+            return;
         }
 
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (camera.isValid()) {
-                camera.setVelocity(camera.getVelocity().setY(0));
-            }
-        }, 3L);
+        Location loc = camera.getLocation();
 
+        if (zoomOut && loc.getY() < maxZoomHeight) {
+            Bukkit.getLogger().info("zoom in");
+            camera.teleport(loc.add(0, zoomSpeed, 0));
+        } else if (!zoomOut && loc.getY() > minZoomHeight) {
+            Bukkit.getLogger().info("zoom out");
+            camera.teleport(loc.add(0, -zoomSpeed, 0));
+        }
     }
 
     public ArmorStand getCamera() {
