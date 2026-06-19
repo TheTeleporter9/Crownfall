@@ -151,4 +151,27 @@ public class BetterConfig implements Config {
             }
         });
     }
+
+    /**
+     * Creates a default configuration section only if it does not already exist.
+     *
+     * Useful for things like biomes, kits, items, etc.
+     *
+     * @param fileName config file name
+     * @param sectionPath path like "biomes.example"
+     * @param builder lambda to define default values
+     */
+    public void addSectionDefault(String fileName, String sectionPath, java.util.function.Consumer<YamlConfiguration> builder) {
+        YamlConfiguration config = getConfig(fileName);
+
+        if (config.isConfigurationSection(sectionPath)) {
+            return;
+        }
+
+        YamlConfiguration temp = new YamlConfiguration();
+        builder.accept(temp);
+
+        config.createSection(sectionPath, temp.getValues(true));
+    }
+
 }

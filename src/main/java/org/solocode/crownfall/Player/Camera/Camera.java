@@ -94,7 +94,7 @@ public class Camera {
         // Apply initial camera orientation correctly (WORLD rotation!)
         Location camLoc = camera.getLocation();
         camLoc.setYaw(playerYawCameraRotation);
-        camLoc.setPitch(0); // pitch is NOT stored on armor stand
+        camLoc.setPitch(playerPitchCameraRotation); // pitch is NOT stored on armor stand
         camera.teleport(camLoc);
     }
 
