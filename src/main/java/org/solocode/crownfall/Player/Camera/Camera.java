@@ -1,6 +1,7 @@
 package org.solocode.crownfall.Player.Camera;
 
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.ArmorStand;
@@ -8,10 +9,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 import org.solocode.betterConfig.BetterConfig;
 import org.solocode.betterConfig.ConfigType;
-import org.solocode.crownfall.Crownfall;
 
 import java.util.Map;
 
@@ -21,12 +22,13 @@ public class Camera {
     private ArmorStand camera;
     private BetterConfig config;
 
-    private final double moveSpeed = 0.6;
-    private final double zoomSpeed = 0.5;
-    private final int maxZoomHeight = 2000;
-    private final int minZoomHeight = -10;
+    private double moveSpeed;
+    private double zoomSpeed;
+    private int maxZoomHeight;
+    private int minZoomHeight;
+    private float playerPitchCameraRotation;
+    private float playerYawCameraRotation;
 
-    private final int playerCameraRotaion = 75;
     public Camera(Player player, Plugin plugin) {
         this.player = player;
         config = new BetterConfig(plugin);
@@ -42,34 +44,58 @@ public class Camera {
                         "move-speed", 0.6,
                         "zoom-speed", 0.5,
                         "max-zoom-height", 20,
-                        "min-zoom-height", 1
+                        "min-zoom-height", 1,
+                        "player-pitch-lock", 60,
+                        "player-yaw-lock", 90
                 )
         );
 
         config.saveConfig("cameraConfig");
+
+
+        YamlConfiguration cfg = config.getConfig("cameraConfig");
+
+        moveSpeed = cfg.getDouble("move-speed");
+        zoomSpeed = cfg.getDouble("zoom-speed");
+        maxZoomHeight = cfg.getInt("max-zoom-height");
+        minZoomHeight = cfg.getInt("min-zoom-height");
+        playerPitchCameraRotation = (float) cfg.getDouble("player-pitch-lock");
+        playerYawCameraRotation = (float) cfg.getDouble("player-yaw-lock");
     }
 
     public void enable() {
-        Location loc = player.getLocation().add(0, 20, 0);
+        Location loc = player.getLocation().add(0, 15, 0);
 
         this.camera = loc.getWorld().spawn(loc, ArmorStand.class, stand -> {
             stand.setInvisible(true);
             stand.setGravity(false);
             stand.setInvulnerable(true);
             stand.addScoreboardTag("camera");
+            stand.setCustomName("camera");
+            stand.setCustomNameVisible(false);
         });
 
+        // Lock player state
         player.addPotionEffect(
                 new PotionEffect(
-                        PotionEffectType.INVISIBILITY, PotionEffect.INFINITE_DURATION, 0, false, false
+                        PotionEffectType.INVISIBILITY,
+                        PotionEffect.INFINITE_DURATION,
+                        0,
+                        false,
+                        false
                 )
         );
 
-        player.setRotation(0, playerCameraRotaion);
         player.addScoreboardTag("inGame");
 
-        this.camera.addPassenger(player);
+        player.setGameMode(GameMode.SPECTATOR);
+        player.setSpectatorTarget(camera);
 
+        // Apply initial camera orientation correctly (WORLD rotation!)
+        Location camLoc = camera.getLocation();
+        camLoc.setYaw(playerYawCameraRotation);
+        camLoc.setPitch(0); // pitch is NOT stored on armor stand
+        camera.teleport(camLoc);
     }
 
     public void disable() {

@@ -72,6 +72,7 @@ public class CameraPacketListener implements Listener {
                 }
             }
         });
+
     }
 
     public PlayerInputType getPlayerMovement(Player player) {
@@ -80,4 +81,5 @@ public class CameraPacketListener implements Listener {
                 PlayerInputType.NONE
         );
     }
+
 }

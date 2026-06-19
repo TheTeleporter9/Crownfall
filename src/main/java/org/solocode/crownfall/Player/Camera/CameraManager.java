@@ -67,6 +67,7 @@ public class CameraManager {
         if (camera != null) {
             camera.disable();
             player.removeScoreboardTag("inGame");
+            player.clearActivePotionEffects();
         }
     }
 
