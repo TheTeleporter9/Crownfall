@@ -2,17 +2,22 @@ package org.solocode.crownfall.Player.Camera;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
+import org.solocode.betterConfig.BetterConfig;
+import org.solocode.betterConfig.ConfigType;
 import org.solocode.crownfall.Crownfall;
 
 
 public class Camera {
     private final Player player;
     private ArmorStand camera;
+    private BetterConfig config;
 
     private final double moveSpeed = 0.6;
     private final double zoomSpeed = 0.5;
@@ -20,8 +25,19 @@ public class Camera {
     private final int minZoomHeight = -10;
 
     private final int playerCameraRotaion = 75;
-    public Camera(Player player) {
+    public Camera(Player player, Plugin plugin) {
         this.player = player;
+        config = new BetterConfig(plugin);
+       createCameraConfig();
+    }
+
+    void createCameraConfig() {
+        config.createConfig(ConfigType.Custom, "cameraConfig");
+        YamlConfiguration cameraConfig = config.getConfig("cameraConfig");
+
+        cameraConfig.set("move-speed", 0.6);
+        cameraConfig.set("zoom-speed", 0.5);
+        camera.set
     }
 
     public void enable() {
