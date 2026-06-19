@@ -1,5 +1,6 @@
 package org.solocode.crownfall.World.map;
 
+
 public class GameMap {
 
     private final String id;
@@ -7,7 +8,11 @@ public class GameMap {
     private final String biomeId;
     private final String worldPath;
 
-    public GameMap(String id, String displayName, String biomeId, String worldPath) {
+    public GameMap(String id,
+                   String displayName,
+                   String biomeId,
+                   String worldPath) {
+
         this.id = id;
         this.displayName = displayName;
         this.biomeId = biomeId;
@@ -26,9 +31,6 @@ public class GameMap {
         return biomeId;
     }
 
-    /**
-     * Path to the world folder (used for loading/copying maps)
-     */
     public String getWorldPath() {
         return worldPath;
     }

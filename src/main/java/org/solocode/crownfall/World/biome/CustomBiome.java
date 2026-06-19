@@ -11,15 +11,14 @@ public class CustomBiome {
     private final String waterColor;
     private final String waterFogColor;
 
-    public CustomBiome(
-            String id,
-            String resourceKey,
-            String fogColor,
-            String foliageColor,
-            String skyColor,
-            String waterColor,
-            String waterFogColor
-    ) {
+    public CustomBiome(String id,
+                       String resourceKey,
+                       String fogColor,
+                       String foliageColor,
+                       String skyColor,
+                       String waterColor,
+                       String waterFogColor) {
+
         this.id = id;
         this.resourceKey = resourceKey;
         this.fogColor = fogColor;
