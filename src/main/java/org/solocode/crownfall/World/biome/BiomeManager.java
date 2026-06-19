@@ -1,5 +1,6 @@
 package org.solocode.crownfall.World.biome;
 
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.solocode.betterConfig.BetterConfig;
 
@@ -30,11 +31,20 @@ public class BiomeManager {
 
         for (String key : section.getKeys(false)) {
 
-            var biomeSection = section.getConfigurationSection(key);
-
+            ConfigurationSection biomeSection = section.getConfigurationSection(key);
             if (biomeSection == null) continue;
 
-            CustomBiome biome = new CustomBiome(key, biomeSection);
+            CustomBiome biome = new CustomBiome(
+                    key,
+                    biomeSection.getString("resource-key", "unknown:biome"),
+
+                    biomeSection.getString("fog-color", "#FFFFFF"),
+                    biomeSection.getString("foliage-color", "#FFFFFF"),
+                    biomeSection.getString("sky-color", "#FFFFFF"),
+                    biomeSection.getString("water-color", "#FFFFFF"),
+                    biomeSection.getString("water-fog-color", "#FFFFFF")
+            );
+
             biomes.put(key.toLowerCase(), biome);
         }
     }
