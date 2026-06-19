@@ -13,6 +13,8 @@ import org.solocode.betterConfig.BetterConfig;
 import org.solocode.betterConfig.ConfigType;
 import org.solocode.crownfall.Crownfall;
 
+import java.util.Map;
+
 
 public class Camera {
     private final Player player;
@@ -33,11 +35,18 @@ public class Camera {
 
     void createCameraConfig() {
         config.createConfig(ConfigType.Custom, "cameraConfig");
-        YamlConfiguration cameraConfig = config.getConfig("cameraConfig");
 
-        cameraConfig.set("move-speed", 0.6);
-        cameraConfig.set("zoom-speed", 0.5);
-        camera.set
+        config.addDefault(
+                "cameraConfig",
+                Map.of(
+                        "move-speed", 0.6,
+                        "zoom-speed", 0.5,
+                        "max-zoom-height", 20,
+                        "min-zoom-height", 1
+                )
+        );
+
+        config.saveConfig("cameraConfig");
     }
 
     public void enable() {

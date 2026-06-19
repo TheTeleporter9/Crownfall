@@ -57,10 +57,7 @@ public class CameraManager {
     }
 
     public void enableCamera(Player player) {
-//        if (activeCameras.containsKey(player.getUniqueId())) {
-//            return;
-//        }
-        Camera camera = new Camera(player);
+        Camera camera = new Camera(player, plugin);
         camera.enable();
         activeCameras.put(player.getUniqueId(), camera);
     }

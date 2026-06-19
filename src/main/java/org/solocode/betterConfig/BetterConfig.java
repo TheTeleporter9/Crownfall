@@ -116,4 +116,39 @@ public class BetterConfig implements Config {
     public boolean exists(String fileName) {
         return configs.containsKey(fileName);
     }
+
+    /**
+     * Sets a value only if the path does not already exist.
+     *
+     * @param fileName The configuration name without the .yml extension.
+     * @param path The path within the configuration.
+     * @param value The default value.
+     *
+     * @throws IllegalArgumentException If the configuration does not exist.
+     */
+    public void addDefault(String fileName, String path, Object value) {
+        YamlConfiguration config = getConfig(fileName);
+
+        if (!config.contains(path)) {
+            config.set(path, value);
+        }
+    }
+
+    /**
+     * Sets a value only if the path does not already exist.
+     *
+     * @param fileName The configuration name without the .yml extension.
+     * @param defaults A map with a string for path and a value after wards
+     *
+     * @throws IllegalArgumentException If the configuration does not exist.
+     */
+    public void addDefault(String fileName, Map<String, Object> defaults) {
+        YamlConfiguration config = getConfig(fileName);
+
+        defaults.forEach((path, value) -> {
+            if (!config.contains(path)) {
+                config.set(path, value);
+            }
+        });
+    }
 }
