@@ -10,7 +10,6 @@ import org.bukkit.entity.*;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
-import org.solocode.crownfall.Crownfall;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,52 +20,45 @@ public class Troop {
 
     private final List<TroopMember> troopMembers = new ArrayList<>();
     private int troopSize = 1;
-    private final NamespacedKey namespacedKey;
-    private Boolean isPathfinding = false;
 
+    private final NamespacedKey selectedKey;
+    private final NamespacedKey healthKey;
 
-    public Troop(int troopSize, TroopTypes troopTypes, Player troopOwner, NamespacedKey namespacedKey) {
+    private boolean isPathfinding = false;
+
+    public Troop(int troopSize,
+                 TroopTypes troopTypes,
+                 Player troopOwner,
+                 NamespacedKey selectedKey,
+                 NamespacedKey healthKey) {
+
         this.troopSize = troopSize;
-        this.namespacedKey = namespacedKey;
+        this.selectedKey = selectedKey;
+        this.healthKey = healthKey;
+
         troopMembers.add(
                 new TroopMember(troopTypes, 1, troopOwner)
         );
     }
+
 
     public void spawn(Location location) {
         World world = location.getWorld();
 
         for (int i = 0; i < troopSize; i++) {
             for (TroopMember troopMember : troopMembers) {
-                assert getMobTypeFromTroopType(troopMember.getTroopType()) != null;
+
                 Mob mob = (Mob) world.spawnEntity(
-                        location, getMobTypeFromTroopType(troopMember.getTroopType())
+                        location,
+                        getMobTypeFromTroopType(troopMember.getTroopType())
                 );
 
-                final Component troopTypeText = text()
-                        .append(text(
-                                troopMember.getTroopType().toString(),
-                                NamedTextColor.GOLD
-                        ))
-                        .append(text(
-                                " Troop",
-                                NamedTextColor.AQUA
-                        ))
-                        .build();
+                Component name =
+                        text(troopMember.getTroopType().toString(), NamedTextColor.GOLD)
+                                .append(text(" Troop", NamedTextColor.AQUA))
+                                .append(text(" | LvL " + troopMember.getTroopMemberLevel(), NamedTextColor.RED));
 
-                final Component troopLevelText =
-                        text(" LvL. " + troopMember.getTroopMemberLevel(),
-                                NamedTextColor.RED);
-
-                final Component separatorText =
-                        text(" | ", NamedTextColor.GRAY);
-
-                mob.customName(
-                        troopTypeText
-                                .append(separatorText)
-                                .append(troopLevelText)
-                );
-
+                mob.customName(name);
                 mob.setCustomNameVisible(true);
 
                 mob.setAI(false);
@@ -74,143 +66,174 @@ public class Troop {
                 mob.addScoreboardTag("troop");
                 mob.addScoreboardTag(troopMember.getTroopType().toString() + "-troop");
 
-                //Set the mob/entity selected to false
-                mob.getPersistentDataContainer().set(namespacedKey, PersistentDataType.BOOLEAN, false);
+                mob.getPersistentDataContainer().set(
+                        selectedKey,
+                        PersistentDataType.BOOLEAN,
+                        false
+                );
+
+
+                mob.getPersistentDataContainer().set(
+                        healthKey,
+                        PersistentDataType.INTEGER,
+                        getMaxHealth(troopMember)
+                );
 
                 troopMember.setMob(mob);
             }
         }
-
     }
 
-    private EntityType getMobTypeFromTroopType(TroopTypes type) {
-        switch (type) {
-            case Infantry -> {
-                return EntityType.SKELETON;
-            }
-            case Defence -> {
-                return EntityType.ZOMBIE;
-            }
-        }
-        return null;
-    }
 
-    /***
-     * Make troop entities go to a location
-     * Only if they have the data tag, of selected
-     */
     public void goTo(Location location) {
-        World world = location.getWorld();
         isPathfinding = true;
 
         for (TroopMember troopMember : troopMembers) {
-            Mob troopMemberMob = troopMember.getMob();
-            if (!(troopMemberMob.getScoreboardTags().contains("troop"))) continue;
 
-            PersistentDataContainer pdc = troopMemberMob.getPersistentDataContainer();
-            Boolean selected = pdc.get(namespacedKey, PersistentDataType.BOOLEAN);
+            Mob mob = troopMember.getMob();
+            if (mob == null || mob.isDead()) continue;
 
-            //Make shure that it is the correct troop;
+            if (!mob.getScoreboardTags().contains("troop")) continue;
+
+            Boolean selected = mob.getPersistentDataContainer()
+                    .get(selectedKey, PersistentDataType.BOOLEAN);
+
             if (selected != null && !selected) continue;
 
-            troopMemberMob.setAI(true);
-
-            Pathfinder pathfinder = troopMemberMob.getPathfinder();
-            if (!isPathfinding) pathfinder.stopPathfinding();
-            boolean finishedPath = pathfinder.moveTo(location);
-
-            if(finishedPath) {
-                troopMemberMob.getPathfinder().stopPathfinding();
-                troopMemberMob.setAI(false);
-            }
+            mob.setAI(true);
+            mob.getPathfinder().moveTo(location);
         }
     }
 
     public void stop() {
+        isPathfinding = false;
+
         for (TroopMember member : troopMembers) {
 
             Mob mob = member.getMob();
             if (mob == null || mob.isDead()) continue;
 
             mob.getPathfinder().stopPathfinding();
-
             mob.setAI(false);
-
-            // kill any residual motion
             mob.setVelocity(new Vector(0, 0, 0));
         }
     }
 
-    public void despawn() {
-        for (TroopMember troopMember : troopMembers) {
-            troopMember.setAlive(false);
+
+    public int calculateDamage(Entity target) {
+        if (!(target instanceof LivingEntity)) return 0;
+
+        int total = 0;
+
+        for (TroopMember member : troopMembers) {
+
+            Mob mob = member.getMob();
+            if (mob == null || mob.isDead()) continue;
+
+            if (mob.getLocation().distance(target.getLocation()) <= 3.5) {
+                total += 2 * (1 + member.getTroopMemberLevel());
+            }
         }
+
+        return total;
     }
 
 
-    // This class represents one unit of a troop!
+    private int getHealth(Mob mob) {
+        Integer hp = mob.getPersistentDataContainer()
+                .get(healthKey, PersistentDataType.INTEGER);
+
+        return hp == null ? 0 : hp;
+    }
+
+    private void setHealth(Mob mob, int hp) {
+        mob.getPersistentDataContainer().set(
+                healthKey,
+                PersistentDataType.INTEGER,
+                Math.max(0, hp)
+        );
+    }
+
+    private void removeHealth(Mob mob, int amount) {
+        setHealth(mob, getHealth(mob) - amount);
+    }
+
+    public void applyDamage(Mob mob, int damage) {
+
+        if (mob == null || mob.isDead()) return;
+
+        removeHealth(mob, damage);
+
+        if (getHealth(mob) <= 0) {
+            killUnit(mob);
+        }
+    }
+
+    public void heal(Mob mob, int amount) {
+        if (mob == null || mob.isDead()) return;
+
+        int hp = getHealth(mob);
+        setHealth(mob, hp + amount);
+    }
+
+    private void killUnit(Mob mob) {
+        mob.setAI(false);
+        mob.getPathfinder().stopPathfinding();
+
+        mob.setHealth(0);
+        mob.setVelocity(new Vector(0, 0, 0));
+
+        mob.removeScoreboardTag("troop");
+    }
+
+    private int getMaxHealth(TroopMember member) {
+        return 20 * member.getTroopMemberLevel();
+    }
+
+
+    private EntityType getMobTypeFromTroopType(TroopTypes type) {
+        return switch (type) {
+            case Infantry -> EntityType.SKELETON;
+            case Defence -> EntityType.ZOMBIE;
+        };
+    }
+
+
     private static class TroopMember {
 
         private final TroopTypes troopType;
-        private int troopMemberLevel = 0;
+        private int troopMemberLevel;
         private Player owner;
-        private boolean alive = true;
         private Mob mob;
 
-        public TroopMember(TroopTypes type, int troopMemberLevel, Player troopMemberOwner) {
+        public TroopMember(TroopTypes type, int level, Player owner) {
             this.troopType = type;
-            this.troopMemberLevel = troopMemberLevel;
-            this.owner = troopMemberOwner;
+            this.troopMemberLevel = level;
+            this.owner = owner;
         }
 
         public TroopTypes getTroopType() {
             return troopType;
         }
 
-        public Mob setMob(Mob mob) {
-            return this.mob = mob;
-        }
-
-        public Mob getMob() {
-            return mob;
-        }
-
         public int getTroopMemberLevel() {
             return troopMemberLevel;
-        }
-
-        public void setTroopMemberLevel(int troopMemberLevel) {
-            this.troopMemberLevel = troopMemberLevel;
         }
 
         public Player getOwner() {
             return owner;
         }
 
-        public void setOwner(Player owner) {
-            this.owner = owner;
+        public Mob getMob() {
+            return mob;
         }
 
-        public boolean isAlive() {
-            return alive;
-        }
-
-        public void setAlive(boolean alive) {
-            this.alive = alive;
+        public void setMob(Mob mob) {
+            this.mob = mob;
         }
 
         public void upgrade() {
-            this.troopMemberLevel++;
+            troopMemberLevel++;
         }
-
-        public void kill() {
-            this.alive = false;
-        }
-
-        public void revive() {
-            this.alive = true;
-        }
-
     }
-
 }
