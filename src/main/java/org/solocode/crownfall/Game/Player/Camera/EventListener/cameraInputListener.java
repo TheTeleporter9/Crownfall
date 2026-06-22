@@ -22,7 +22,7 @@ public class cameraInputListener implements Listener {
     public void onHotbarScroll(PlayerItemHeldEvent event) {
         Player player = event.getPlayer();
         
-        if (!player.getScoreboardTags().contains("inGame")) return;
+        if (!player.getScoreboardTags().contains("inTopDown")) return;
         
         Entity vehicle = player.getVehicle();
         if (vehicle == null || !vehicle.getScoreboardTags().contains("camera")) return;

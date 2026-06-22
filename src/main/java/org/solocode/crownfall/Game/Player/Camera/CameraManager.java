@@ -28,12 +28,12 @@ public class CameraManager {
 
     public void update() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!player.getScoreboardTags().contains("inGame")) continue;
+            if (!player.getScoreboardTags().contains("inTopDown")) continue;
 
             Camera camera = activeCameras.get(player.getUniqueId());
             if (camera == null) continue;
 
-            PlayerInputType input = cameraPacketListener.getPlayerMovement(player);
+            PlayerTopdownCamInputType input = cameraPacketListener.getPlayerMovement(player);
             switch (input) {
                 case MOVE_FORWARD:
                     camera.move(-1, 0);
@@ -66,7 +66,7 @@ public class CameraManager {
         Camera camera = activeCameras.remove(player.getUniqueId());
         if (camera != null) {
             camera.disable();
-            player.removeScoreboardTag("inGame");
+            player.removeScoreboardTag("inTopDown");
             player.clearActivePotionEffects();
         }
     }

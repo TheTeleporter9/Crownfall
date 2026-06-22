@@ -1,6 +1,6 @@
 package org.solocode.crownfall.Game.Player.Camera;
 
-public enum PlayerInputType {
+public enum PlayerTopdownCamInputType {
     MOVE_FORWARD,
     MOVE_BACKWARD,
     MOVE_LEFT,

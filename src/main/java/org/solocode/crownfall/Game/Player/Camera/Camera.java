@@ -85,7 +85,7 @@ public class Camera {
                 )
         );
 
-        player.addScoreboardTag("inGame");
+        player.addScoreboardTag("inTopDown");
 
         player.setGameMode(GameMode.SPECTATOR);
         player.setSpectatorTarget(camera);

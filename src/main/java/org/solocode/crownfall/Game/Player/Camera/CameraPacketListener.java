@@ -16,7 +16,7 @@ import java.util.UUID;
 public class CameraPacketListener implements Listener {
 
     private final Crownfall plugin;
-    private final Map<UUID, PlayerInputType> playerInputs = new HashMap<>();
+    private final Map<UUID, PlayerTopdownCamInputType> playerInputs = new HashMap<>();
 
     public CameraPacketListener(Crownfall plugin) {
         this.plugin = plugin;
@@ -45,24 +45,24 @@ public class CameraPacketListener implements Listener {
 
                     Player player = event.getPlayer();
 
-                    if (player.getScoreboardTags().contains("inGame")) {
+                    if (player.getScoreboardTags().contains("inTopDown")) {
                         event.setCancelled(true);
                     }
 
-                    PlayerInputType movement = PlayerInputType.NONE;
+                    PlayerTopdownCamInputType movement = PlayerTopdownCamInputType.NONE;
 
                     if (forward) {
-                        movement = PlayerInputType.MOVE_FORWARD;
+                        movement = PlayerTopdownCamInputType.MOVE_FORWARD;
                     } else if (backward) {
-                        movement = PlayerInputType.MOVE_BACKWARD;
+                        movement = PlayerTopdownCamInputType.MOVE_BACKWARD;
                     } else if (left) {
-                        movement = PlayerInputType.MOVE_LEFT;
+                        movement = PlayerTopdownCamInputType.MOVE_LEFT;
                     } else if (right) {
-                        movement = PlayerInputType.MOVE_RIGHT;
+                        movement = PlayerTopdownCamInputType.MOVE_RIGHT;
                     } else if (jump) {
-                        movement = PlayerInputType.MOVE_JUMP;
+                        movement = PlayerTopdownCamInputType.MOVE_JUMP;
                     } else if (shift) {
-                        movement = PlayerInputType.SHIFT;
+                        movement = PlayerTopdownCamInputType.SHIFT;
                     }
 
                     playerInputs.put(player.getUniqueId(), movement);
@@ -75,10 +75,10 @@ public class CameraPacketListener implements Listener {
 
     }
 
-    public PlayerInputType getPlayerMovement(Player player) {
+    public PlayerTopdownCamInputType getPlayerMovement(Player player) {
         return playerInputs.getOrDefault(
                 player.getUniqueId(),
-                PlayerInputType.NONE
+                PlayerTopdownCamInputType.NONE
         );
     }
 
