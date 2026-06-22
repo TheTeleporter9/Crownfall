@@ -13,14 +13,12 @@ import java.util.Map;
 
 public class Mapmanager {
 
-    private final Plugin plugin;
     private final BetterConfig config;
 
     private final Map<String, GameMap> maps = new HashMap<>();
     private final Map<String, CustomBiome> biomes = new HashMap<>();
 
     public Mapmanager(Plugin plugin) {
-        this.plugin = plugin;
         this.config = new BetterConfig(plugin);
 
         createConfig();

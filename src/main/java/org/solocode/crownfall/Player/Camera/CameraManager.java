@@ -36,16 +36,16 @@ public class CameraManager {
             PlayerInputType input = cameraPacketListener.getPlayerMovement(player);
             switch (input) {
                 case MOVE_FORWARD:
-                    camera.move(0, -1);
-                    break;
-                case MOVE_BACKWARD:
-                    camera.move(0, 1);
-                    break;
-                case MOVE_LEFT:
                     camera.move(-1, 0);
                     break;
-                case MOVE_RIGHT:
+                case MOVE_BACKWARD:
                     camera.move(1, 0);
+                    break;
+                case MOVE_LEFT:
+                    camera.move(0, -1);
+                    break;
+                case MOVE_RIGHT:
+                    camera.move(0, 1);
                     break;
                 case NONE:
                     camera.move(0, 0);
