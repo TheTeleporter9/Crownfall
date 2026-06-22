@@ -9,6 +9,7 @@ import org.bukkit.World;
 import org.bukkit.entity.*;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.Vector;
 import org.solocode.crownfall.Crownfall;
 
 import java.util.ArrayList;
@@ -18,9 +19,11 @@ import static net.kyori.adventure.text.Component.text;
 
 public class Troop {
 
-    private List<TroopMember> troopMembers = new ArrayList<>();
+    private final List<TroopMember> troopMembers = new ArrayList<>();
     private int troopSize = 1;
-    private NamespacedKey namespacedKey;
+    private final NamespacedKey namespacedKey;
+    private Boolean isPathfinding = false;
+
 
     public Troop(int troopSize, TroopTypes troopTypes, Player troopOwner, NamespacedKey namespacedKey) {
         this.troopSize = troopSize;
@@ -33,47 +36,49 @@ public class Troop {
     public void spawn(Location location) {
         World world = location.getWorld();
 
-        for(TroopMember troopMember : troopMembers) {
-            assert getMobTypeFromTroopType(troopMember.getTroopType()) != null;
-            Mob mob = (Mob) world.spawnEntity(
-                    location, getMobTypeFromTroopType(troopMember.getTroopType())
-            );
+        for (int i = 0; i < troopSize; i++) {
+            for (TroopMember troopMember : troopMembers) {
+                assert getMobTypeFromTroopType(troopMember.getTroopType()) != null;
+                Mob mob = (Mob) world.spawnEntity(
+                        location, getMobTypeFromTroopType(troopMember.getTroopType())
+                );
 
-            final Component troopTypeText = text()
-                    .append(text(
-                            troopMember.getTroopType().toString(),
-                            NamedTextColor.GOLD
-                    ))
-                    .append(text(
-                            " Troop",
-                            NamedTextColor.AQUA
-                    ))
-                    .build();
+                final Component troopTypeText = text()
+                        .append(text(
+                                troopMember.getTroopType().toString(),
+                                NamedTextColor.GOLD
+                        ))
+                        .append(text(
+                                " Troop",
+                                NamedTextColor.AQUA
+                        ))
+                        .build();
 
-            final Component troopLevelText =
-                    text(" LvL. " + troopMember.getTroopMemberLevel(),
-                            NamedTextColor.RED);
+                final Component troopLevelText =
+                        text(" LvL. " + troopMember.getTroopMemberLevel(),
+                                NamedTextColor.RED);
 
-            final Component separatorText =
-                    text(" | ", NamedTextColor.GRAY);
+                final Component separatorText =
+                        text(" | ", NamedTextColor.GRAY);
 
-            mob.customName(
-                    troopTypeText
-                            .append(separatorText)
-                            .append(troopLevelText)
-            );
+                mob.customName(
+                        troopTypeText
+                                .append(separatorText)
+                                .append(troopLevelText)
+                );
 
-            mob.setCustomNameVisible(true);
+                mob.setCustomNameVisible(true);
 
-            mob.setAI(false);
+                mob.setAI(false);
 
-            mob.addScoreboardTag("troop");
-            mob.addScoreboardTag(troopMember.getTroopType().toString() + "-troop");
+                mob.addScoreboardTag("troop");
+                mob.addScoreboardTag(troopMember.getTroopType().toString() + "-troop");
 
-            //Set the mob/entity selected to false
-            mob.getPersistentDataContainer().set(namespacedKey, PersistentDataType.BOOLEAN, false);
+                //Set the mob/entity selected to false
+                mob.getPersistentDataContainer().set(namespacedKey, PersistentDataType.BOOLEAN, false);
 
-            troopMember.setMob(mob);
+                troopMember.setMob(mob);
+            }
         }
 
     }
@@ -96,21 +101,49 @@ public class Troop {
      */
     public void goTo(Location location) {
         World world = location.getWorld();
+        isPathfinding = true;
 
-        for(TroopMember troopMember : troopMembers) {
+        for (TroopMember troopMember : troopMembers) {
             Mob troopMemberMob = troopMember.getMob();
-            if(!(troopMemberMob.getScoreboardTags().contains("troop"))) return;
+            if (!(troopMemberMob.getScoreboardTags().contains("troop"))) continue;
 
             PersistentDataContainer pdc = troopMemberMob.getPersistentDataContainer();
             Boolean selected = pdc.get(namespacedKey, PersistentDataType.BOOLEAN);
 
             //Make shure that it is the correct troop;
-            assert selected != null;
-            if(!selected) return;
+            if (selected != null && !selected) continue;
+
+            troopMemberMob.setAI(true);
 
             Pathfinder pathfinder = troopMemberMob.getPathfinder();
-            pathfinder.moveTo(location);
+            if (!isPathfinding) pathfinder.stopPathfinding();
+            boolean finishedPath = pathfinder.moveTo(location);
 
+            if(finishedPath) {
+                troopMemberMob.getPathfinder().stopPathfinding();
+                troopMemberMob.setAI(false);
+            }
+        }
+    }
+
+    public void stop() {
+        for (TroopMember member : troopMembers) {
+
+            Mob mob = member.getMob();
+            if (mob == null || mob.isDead()) continue;
+
+            mob.getPathfinder().stopPathfinding();
+
+            mob.setAI(false);
+
+            // kill any residual motion
+            mob.setVelocity(new Vector(0, 0, 0));
+        }
+    }
+
+    public void despawn() {
+        for (TroopMember troopMember : troopMembers) {
+            troopMember.setAlive(false);
         }
     }
 
