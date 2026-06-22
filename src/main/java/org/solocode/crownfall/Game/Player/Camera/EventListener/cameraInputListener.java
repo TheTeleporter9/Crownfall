@@ -1,15 +1,13 @@
-package org.solocode.crownfall.Player.Camera.EventListener;
+package org.solocode.crownfall.Game.Player.Camera.EventListener;
 
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.solocode.crownfall.Crownfall;
-import org.solocode.crownfall.Player.Camera.Camera;
-import org.solocode.crownfall.Player.Camera.CameraManager;
-import org.solocode.crownfall.Player.Camera.PlayerInputType;
+import org.solocode.crownfall.Game.Player.Camera.Camera;
+import org.solocode.crownfall.Game.Player.Camera.CameraManager;
 
 public class cameraInputListener implements Listener {
     private final Crownfall plugin;

@@ -4,7 +4,7 @@ import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.NonNull;
-import org.solocode.crownfall.Player.Camera.CameraManager;
+import org.solocode.crownfall.Game.Player.Camera.CameraManager;
 
 import java.util.Collection;
 import java.util.stream.Stream;

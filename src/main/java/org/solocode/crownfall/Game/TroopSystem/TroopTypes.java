@@ -1,4 +1,4 @@
-package org.solocode.crownfall.TroopSystem;
+package org.solocode.crownfall.Game.TroopSystem;
 
 public enum TroopTypes {
     Infantry,

@@ -1,4 +1,4 @@
-package org.solocode.crownfall.Player.Camera;
+package org.solocode.crownfall.Game.Player.Camera;
 
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -9,7 +9,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 import org.solocode.betterConfig.BetterConfig;
 import org.solocode.betterConfig.ConfigType;

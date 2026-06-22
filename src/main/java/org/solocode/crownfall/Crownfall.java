@@ -5,9 +5,9 @@ import com.comphenix.protocol.ProtocolManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.solocode.crownfall.Commands.startCommand;
-import org.solocode.crownfall.Player.Camera.CameraManager;
-import org.solocode.crownfall.Player.Camera.CameraPacketListener;
-import org.solocode.crownfall.Player.Camera.EventListener.cameraInputListener;
+import org.solocode.crownfall.Game.Player.Camera.CameraManager;
+import org.solocode.crownfall.Game.Player.Camera.CameraPacketListener;
+import org.solocode.crownfall.Game.Player.Camera.EventListener.cameraInputListener;
 
 public final class Crownfall extends JavaPlugin {
 

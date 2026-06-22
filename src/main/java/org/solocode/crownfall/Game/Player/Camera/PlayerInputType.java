@@ -1,4 +1,4 @@
-package org.solocode.crownfall.Player.Camera;
+package org.solocode.crownfall.Game.Player.Camera;
 
 public enum PlayerInputType {
     MOVE_FORWARD,

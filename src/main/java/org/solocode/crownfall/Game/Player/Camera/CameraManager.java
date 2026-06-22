@@ -1,9 +1,9 @@
-package org.solocode.crownfall.Player.Camera;
+package org.solocode.crownfall.Game.Player.Camera;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.solocode.crownfall.Crownfall;
-import org.solocode.crownfall.Player.Camera.EventListener.cameraInputListener;
+import org.solocode.crownfall.Game.Player.Camera.EventListener.cameraInputListener;
 
 import java.util.HashMap;
 import java.util.Map;

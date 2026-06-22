@@ -1,4 +1,4 @@
-package org.solocode.crownfall.Player.Camera;
+package org.solocode.crownfall.Game.Player.Camera;
 
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolManager;
