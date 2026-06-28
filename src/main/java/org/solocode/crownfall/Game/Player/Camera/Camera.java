@@ -10,8 +10,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
-import org.solocode.betterConfig.BetterConfig;
-import org.solocode.betterConfig.ConfigType;
+import org.solocode.Corex.config.Config;
 
 import java.util.Map;
 
@@ -19,48 +18,29 @@ import java.util.Map;
 public class Camera {
     private final Player player;
     private ArmorStand camera;
-    private BetterConfig config;
 
-    private double moveSpeed;
-    private double zoomSpeed;
-    private int maxZoomHeight;
-    private int minZoomHeight;
-    private float playerPitchCameraRotation;
-    private float playerYawCameraRotation;
+    @Config("cameraConfig.moveSpeed")
+    private double moveSpeed = 0.6;
+
+    @Config("cameraConfig.zoomSpeed")
+    private double zoomSpeed = 0.5;
+
+    @Config("cameraConfig.maxZoomHeight")
+    private int maxZoomHeight = 20;
+
+    @Config("cameraConfig.minZoomHeight")
+    private int minZoomHeight = 1;
+
+    @Config("cameraConfig.playerPitchCameraRotation")
+    private float playerPitchCameraRotation = 60;
+
+    @Config("cameraConfig.playerYawCameraRotation")
+    private float playerYawCameraRotation = 90;
 
     public Camera(Player player, Plugin plugin) {
         this.player = player;
-        config = new BetterConfig(plugin);
-       createCameraConfig();
     }
 
-    void createCameraConfig() {
-        config.createConfig(ConfigType.Custom, "cameraConfig");
-
-        config.addDefault(
-                "cameraConfig",
-                Map.of(
-                        "move-speed", 0.6,
-                        "zoom-speed", 0.5,
-                        "max-zoom-height", 20,
-                        "min-zoom-height", 1,
-                        "player-pitch-lock", 60,
-                        "player-yaw-lock", 90
-                )
-        );
-
-        config.saveConfig("cameraConfig");
-
-
-        YamlConfiguration cfg = config.getConfig("cameraConfig");
-
-        moveSpeed = cfg.getDouble("move-speed");
-        zoomSpeed = cfg.getDouble("zoom-speed");
-        maxZoomHeight = cfg.getInt("max-zoom-height");
-        minZoomHeight = cfg.getInt("min-zoom-height");
-        playerPitchCameraRotation = (float) cfg.getDouble("player-pitch-lock");
-        playerYawCameraRotation = (float) cfg.getDouble("player-yaw-lock");
-    }
 
     public void enable() {
         Location loc = player.getLocation().add(0, 15, 0);

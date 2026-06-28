@@ -2,7 +2,7 @@ package org.solocode.crownfall.World.biome;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.solocode.betterConfig.BetterConfig;
+import org.solocode.Corex.config.BetterConfig;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -10,11 +10,11 @@ import java.util.Map;
 
 public class BiomeManager {
 
-    private final BetterConfig config;
+
     private final Map<String, CustomBiome> biomes = new HashMap<>();
 
-    public BiomeManager(BetterConfig config) {
-        this.config = config;
+    public BiomeManager() {
+
     }
 
     /**

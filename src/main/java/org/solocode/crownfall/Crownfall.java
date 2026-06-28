@@ -4,6 +4,7 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.solocode.Corex.Corex;
 import org.solocode.crownfall.Commands.startCommand;
 import org.solocode.crownfall.Game.Player.Camera.CameraManager;
 import org.solocode.crownfall.Game.Player.Camera.CameraPacketListener;
@@ -22,6 +23,8 @@ public final class Crownfall extends JavaPlugin {
         protocolManager = ProtocolLibrary.getProtocolManager();
         cameraManager = new CameraManager(this);
 
+        new Corex(this);
+
         initSystems();
         Bukkit.getScheduler().runTaskTimer(this, this::update, 0L, 1L);
     }
@@ -37,6 +40,7 @@ public final class Crownfall extends JavaPlugin {
         registerCommand("start", new startCommand(this, cameraManager));
         getServer().getPluginManager().registerEvents(new cameraInputListener(this, cameraManager), this);
     }
+
 
     public void update() {
        cameraManager.update();

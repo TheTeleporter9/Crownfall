@@ -1,6 +1,7 @@
-package org.solocode.betterConfig;
+package org.solocode.Corex.config;
 
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
@@ -20,15 +21,35 @@ import java.util.Map;
  *
  */
 
-public class BetterConfig implements Config {
+public class ConfigCore implements IConfig {
 
     private final Plugin plugin;
 
     private final Map<String, File> files = new HashMap<>();
     private final Map<String, YamlConfiguration> configs = new HashMap<>();
 
-    public BetterConfig(Plugin plugin) {
+    public ConfigCore(Plugin plugin) {
         this.plugin = plugin;
+    }
+
+
+    /**
+     * Automatically initializes, registers, generates defaults for, and returns
+     * a fully populated configuration instance.
+     * * @param configClass The class containing your @Config annotated fields.
+     * @return A fully populated instance of that class.
+     */
+    public <T> T init(Class<T> configClass) {
+        try {
+            T instance = configClass.getDeclaredConstructor().newInstance();
+
+            ConfigInjector.inject(instance, this);
+
+            return instance;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Corex failed to initialize config class: " + configClass.getName(), e);
+        }
     }
 
     @Override
@@ -67,7 +88,7 @@ public class BetterConfig implements Config {
 
         if (config == null) {
             throw new IllegalArgumentException(
-                    "Config '" + fileName + "' does not exist."
+                    "IConfig '" + fileName + "' does not exist."
             );
         }
 
@@ -85,7 +106,7 @@ public class BetterConfig implements Config {
 
         if (file == null || config == null) {
             throw new IllegalArgumentException(
-                    "Config '" + fileName + "' does not exist."
+                    "IConfig '" + fileName + "' does not exist."
             );
         }
 
@@ -106,7 +127,7 @@ public class BetterConfig implements Config {
 
         if (file == null) {
             throw new IllegalArgumentException(
-                    "Config '" + fileName + "' does not exist."
+                    "IConfig '" + fileName + "' does not exist."
             );
         }
 

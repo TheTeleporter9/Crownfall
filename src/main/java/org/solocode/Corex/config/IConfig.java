@@ -1,4 +1,4 @@
-package org.solocode.betterConfig;
+package org.solocode.Corex.config;
 
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -6,7 +6,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.IOException;
 import java.util.Map;
 
-public interface Config {
+public interface IConfig {
     void createConfig(ConfigType type, String name);
 
     void createConfig(ConfigType type);

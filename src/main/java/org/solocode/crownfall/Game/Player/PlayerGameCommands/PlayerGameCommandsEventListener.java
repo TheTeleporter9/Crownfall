@@ -26,7 +26,7 @@ public class PlayerGameCommandsEventListener implements Listener {
                 }
                 case LEFT_CLICK_BLOCK -> {
                     assert event.getItem() != null;
-                    //ignore this horrific ifstatment, I am to lazy to fix this until it breaks, then I am going to be annoyed! Hours wasted: 1
+                    //ignore this horrific if statment, I am to lazy to fix this until it breaks, then I am going to be annoyed! Hours wasted: 1
                     if (java.util.Optional.ofNullable(event.getItem())
                             .map(i -> i.getData(DataComponentTypes.CUSTOM_NAME))
                             .filter(name -> name.contains(Component.text("Move Selected Troop to Location")))
@@ -40,7 +40,7 @@ public class PlayerGameCommandsEventListener implements Listener {
     }
 
     public Location getPlayerMoveToTroopLocation() {
-        return pmttl; //the pmttl name is a abreviation of this function. Kill me, this is not a public domain and only for me to suffer!
+        return pmttl; //the pmttl name is an abbreviation of this function. Kill me, this is not a public repo and only for me to suffer!
     }
 
 }

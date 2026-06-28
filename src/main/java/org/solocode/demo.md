@@ -1,0 +1,3186 @@
+# Corex Framework — Complete Design Specification & Developer Guide
+
+---
+
+# Table of Contents
+
+1. [Overview & Philosophy](#1-overview--philosophy)
+2. [Corex Project Structure](#2-corex-project-structure)
+3. [Core Types Reference](#3-core-types-reference)
+4. [Configuration System](#4-configuration-system)
+5. [Command System](#5-command-system)
+6. [Event System](#6-event-system)
+7. [Entity System](#7-entity-system)
+8. [Block System](#8-block-system)
+9. [Item System](#9-item-system)
+10. [Biome & Worldgen System](#10-biome--worldgen-system)
+11. [Resource Pack System](#11-resource-pack-system)
+12. [Font System](#12-font-system)
+13. [Data/Persistence System](#13-datapersistence-system)
+14. [Task/Scheduler System](#14-taskscheduler-system)
+15. [External API Integration](#15-external-api-integration)
+16. [Compiler Architecture](#16-compiler-architecture)
+17. [Generated Output](#17-generated-output)
+18. [Hot Reloading](#18-hot-reloading)
+19. [Idiot-Proofing Guarantees](#19-idiot-proofing-guarantees)
+20. [Edge Cases & Handling](#20-edge-cases--handling)
+21. [Optimization Principles](#21-optimization-principles)
+22. [Developer Adoption Strategy](#22-developer-adoption-strategy)
+23. [Monetization Model](#23-monetization-model)
+24. [Implementation Roadmap](#24-implementation-roadmap)
+25. [Complete Example Project](#25-complete-example-project)
+
+---
+
+# 1. Overview & Philosophy
+
+## What is Corex?
+
+Corex is a **build-system-first framework** for PaperMC plugin development. It combines:
+
+- A **clean developer API** (structured classes, minimal boilerplate)
+- An **automatic compiler** that transforms your code into production-ready Paper plugins
+- Built-in support for **resource packs**, **datapacks**, **custom blocks**, **custom entities**, **fonts**, and **biomes**
+- Full **PaperMC ecosystem integration** (Adventure API, Brigadier commands, PAPI, ProtocolLib)
+
+## Design Philosophy
+
+### Explicit Over Magic
+
+Corex avoids "magic" behavior where the framework guesses or auto-generates identifiers. Instead:
+
+- Config paths use explicit `@Key` annotations
+- Entity IDs use explicit `@EntityDefinition` annotations
+- Block IDs use explicit `@BlockDefinition` annotations
+- Command names use explicit `@Command` annotations
+
+This prevents breaking changes when you refactor Java variable names or class names.
+
+### Minimal Type Count
+
+Instead of creating hundreds of specialized types, Corex uses **generic patterns** with **type parameters**:
+
+| Problem | Solution | Types Added |
+|---------|----------|-------------|
+| Custom data storage | `CorexDataKey<T>` | 1 type |
+| Custom items | `CorexItem` | 1 type |
+| Custom blocks | `CorexBlock` | 1 type |
+| Custom entities | `CorexEntity` | 1 type |
+| Custom biomes | `CorexBiome` | 1 type |
+| Custom commands | `CommandRouter` | 1 type |
+| Custom configs | `CorexConfig` | 1 type |
+
+**Total core types: ~7 base types** that developers extend and configure.
+
+### Build-Time Power, Runtime Simplicity
+
+Heavy processing (JSON generation, ID allocation, asset packaging) happens at **compile time**. The runtime plugin jar contains only optimized, vanilla Paper-compatible bytecode with zero overhead.
+
+## Problems Corex Solves
+
+| Paper Pain Point | Corex Solution |
+|------------------|----------------|
+| Verbose event registration | `CorexListener` with auto-registration |
+| `String[] args` parsing | Method reference routing with typed parameters |
+| `YamlConfiguration` boilerplate | `@Key` annotated field mapping |
+| Manual `plugin.yml` maintenance | Auto-generated from annotations |
+| Custom block performance issues | BlockState hijacking (no entities) |
+| Resource pack folder structure | Flat folder input, auto-transformation |
+| Datapack JSON writing | Java-based biome/worldgen API |
+| CustomModelData ID management | Auto-generated registry constants |
+| PlaceholderAPI boilerplate | Ambient parsing + simple registry |
+| ProtocolLib packet index guessing | Type-safe named field access |
+
+---
+
+# 2. Corex Project Structure
+
+## Directory Layout
+
+```
+my-corex-project/
+├── corex.yml                    # Project configuration
+├── src/
+│   ├── java/                    # Java source files
+│   │   └── org/example/myplugin/
+│   │       ├── MyPlugin.java    # Main plugin class
+│   │       ├── configs/         # CorexConfig subclasses
+│   │       ├── commands/        # CommandRouter subclasses
+│   │       ├── listeners/       # CorexListener subclasses
+│   │       ├── entities/        # CorexEntity subclasses
+│   │       ├── blocks/          # CorexBlock subclasses
+│   │       ├── items/          # CorexItem subclasses
+│   │       ├── biomes/         # CorexBiome subclasses
+│   │       └── systems/        # Helper classes
+│   │
+│   └── resources/               # Flat asset folders
+│       ├── models/             # Blockbench JSON files
+│       ├── textures/           # PNG textures (all in one folder)
+│       └── fonts/              # UI icon PNGs for font system
+│
+├── build/                       # Generated by compiler
+│   ├── generated/              # Auto-generated source files
+│   └── output/                 # Final build artifacts
+│       ├── MyPlugin.jar
+│       ├── MyPlugin-ResourcePack.zip
+│       └── MyPlugin-Datapack.zip
+```
+
+## corex.yml Reference
+
+```yaml
+project:
+  name: MyProject
+  mainClass: org.example.myplugin.MyPlugin
+  version: "1.0.0"
+  minecraftVersion: "1.21"
+  paperApiVersion: "1.21"
+
+plugin:
+  authors:
+    - DeveloperName
+  description: Plugin description
+  website: https://example.com
+
+resourcePack:
+  enabled: true
+  deployment: local        # local | external | manual | disabled
+  local:
+    port: 8123
+    path: resourcepack
+  external:
+    url: "https://example.com/pack.zip"
+  force: false
+  prompt: "This server uses a custom resource pack."
+
+datapack:
+  enabled: true
+  autoInstall: true
+
+integrations:
+  placeholderAPI: true
+  protocolLib: true
+  vault: false
+
+compiler:
+  generatePluginYml: true
+  generateAssetsRegistry: true
+  failOnMissingTexture: true
+  warnOnUnusedTexture: true
+```
+
+---
+
+# 3. Core Types Reference
+
+## Type Hierarchy Overview
+
+```
+CorexPlugin (base class for user's main class)
+├── CorexConfig (configuration mapping)
+├── CommandRouter (command routing)
+├── CorexListener (event handling)
+├── CorexEntity (custom entity logic)
+├── CorexBlock (custom block logic)
+├── CorexItem (custom item logic)
+└── CorexBiome (biome/worldgen definition)
+```
+
+## CorexPlugin
+
+**Purpose:** Entry point for the plugin. The compiler generates the bootstrap, but developers extend this for their setup logic.
+
+```java
+public class MyPlugin extends CorexPlugin {
+
+    @Override
+    public void onSetup() {
+        // Called during onEnable() after registries are initialized
+        usePlaceholderAPI(true);
+        useProtocolLib(true);
+        softDepend("Vault");
+    }
+
+    @Override
+    public void onShutdown() {
+        // Called during onDisable() before registries are cleared
+    }
+}
+```
+
+**Generated Output:** The compiler generates `CorexBootstrap extends JavaPlugin` that:
+
+1. Initializes the plugin
+2. Loads configurations
+3. Registers commands
+4. Registers event listeners
+5. Initializes custom blocks/entities
+6. Starts resource pack hosting if enabled
+7. Calls `onSetup()`
+
+---
+
+# 4. Configuration System
+
+## CorexConfig
+
+**Purpose:** Replace `YamlConfiguration` with strongly-typed, auto-mapping configuration objects.
+
+**Key Features:**
+
+- Automatic YAML file creation
+- Field-to-path mapping via `@Key` annotation
+- Type-safe value retrieval
+- Async saving
+- Graceful fallback to defaults
+- Nested config sections supported
+
+## @Key Annotation
+
+```java
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Key {
+    String value();
+}
+```
+
+## Example Configuration Class
+
+```java
+public class GameConfig extends CorexConfig {
+
+    @Key("game.max_players")
+    public int maxPlayers = 24;
+
+    @Key("game.start_delay_seconds")
+    public int startDelaySeconds = 60;
+
+    @Key("game.enable_pvp")
+    public boolean pvpEnabled = true;
+
+    @Key("database.uri")
+    public String databaseUri = "mongodb://localhost:27017";
+
+    @Key("database.pool_size")
+    public int databasePoolSize = 10;
+
+    @Key("economy.starting_balance")
+    public double startingBalance = 1000.0;
+
+    // Nested section example
+    @Key("spawn.lobby")
+    public Location lobbySpawn;
+
+    public GameConfig() {
+        super("config"); // Creates/loads config.yml
+    }
+}
+```
+
+## Generated YAML Output
+
+```yaml
+game:
+  max_players: 24
+  start_delay_seconds: 60
+  enable_pvp: true
+database:
+  uri: mongodb://localhost:27017
+  pool_size: 10
+economy:
+  starting_balance: 1000.0
+spawn:
+  lobby: world,0.0,64.0,0.0,0.0,0.0
+```
+
+## Usage
+
+```java
+// Load the config
+GameConfig config = Corex.getConfig(GameConfig.class);
+
+// Access values directly (no getters needed)
+int players = config.maxPlayers;
+String uri = config.databaseUri;
+
+// Modify values
+config.maxPlayers = 32;
+Corex.saveConfig(config); // Async save
+
+// Reload from disk
+Corex.reloadConfig(GameConfig.class);
+```
+
+## Nested Configurations
+
+```java
+public class DatabaseConfig extends CorexConfig {
+    @Key("host")
+    public String host = "localhost";
+
+    @Key("port")
+    public int port = 27017;
+
+    public DatabaseConfig() {
+        super("database");
+    }
+}
+
+public class GameConfig extends CorexConfig {
+    @Key("database.host")
+    public String dbHost = "localhost";
+
+    // Can include other configs as nested objects
+    public DatabaseConfig database = new DatabaseConfig();
+
+    public GameConfig() {
+        super("config");
+    }
+}
+```
+
+## Type Safety & Validation
+
+```java
+@Key("game.max_players")
+public int maxPlayers = 24;
+
+// If user sets a string in YAML:
+// max_players: "not a number"
+
+// On load:
+// 1. Corex detects type mismatch
+// 2. Logs warning: "Invalid value for game.max_players, expected integer, got string"
+// 3. Falls back to default value: 24
+// 4. Plugin continues normally (no crash)
+```
+
+---
+
+# 5. Command System
+
+## CommandRouter
+
+**Purpose:** Replace `CommandExecutor` + `TabCompleter` with method-reference-based routing.
+
+**Key Features:**
+
+- Automatic Brigadier tree building
+- Type-safe argument parsing
+- Automatic tab completion
+- Permission handling
+- Sender type validation
+- Nested subcommands
+
+## Simple Command Example
+
+```java
+@Command("game")
+public class GameCommand extends CommandRouter {
+
+    public GameCommand() {
+        // Set permission for all subcommands
+        permission("myplugin.admin");
+
+        // Route subcommands to methods
+        route("start").to(this::startGame);
+        route("stop").to(this::stopGame);
+        route("set-lobby").to(this::setLobby);
+        route("info <player>").to(this::playerInfo);
+    }
+
+    // Simple command with no arguments
+    private void startGame(Player sender, CommandContext ctx) {
+        sender.sendMessage("Game starting...");
+    }
+
+    // Player argument (auto-converts name to Player)
+    private void stopGame(Player sender, CommandContext ctx) {
+        sender.sendMessage("Game stopped.");
+    }
+
+    // Location argument (accepts x,y,z or ~ notation)
+    private void setLobby(Player sender, CommandContext ctx) {
+        Location loc = ctx.getLocation(0);
+        // Save location to config
+    }
+
+    // Typed player argument with validation
+    private void playerInfo(Player sender, CommandContext ctx) {
+        Player target = ctx.getPlayer("player");
+        if (target == null) {
+            sender.sendMessage("Player not found!");
+            return;
+        }
+        sender.sendMessage("Info for: " + target.getName());
+    }
+}
+```
+
+## CommandContext API
+
+```java
+public class CommandContext {
+    // Get sender as Player (returns null if console)
+    public Player getSender();
+
+    // Get sender, throwing if not Player
+    public Player getSenderAsPlayer();
+
+    // Get string argument by index or name
+    public String getString(int index);
+    public String getString(String name);
+
+    // Get integer argument
+    public int getInteger(int index);
+
+    // Get player argument (online lookup)
+    public Player getPlayer(int index);
+    public Player getPlayer(String name);
+
+    // Get location argument (~ notation supported)
+    public Location getLocation(int index);
+
+    // Get raw args array
+    public String[] getRawArgs();
+
+    // Check if has argument
+    public boolean hasArg(int index);
+}
+```
+
+## Tab Completion
+
+```java
+@Command("team")
+public class TeamCommand extends CommandRouter {
+
+    public TeamCommand() {
+        route("join <team>").to(this::joinTeam)
+            .tabComplete("team", (ctx, input) -> List.of("red", "blue", "green"));
+    }
+
+    private void joinTeam(Player sender, CommandContext ctx) {
+        String team = ctx.getString("team");
+        // Join logic
+    }
+}
+```
+
+## Generated Brigadier Output
+
+The compiler transforms method references into:
+
+```java
+LiteralArgumentBuilder.literal("game")
+    .requires(sender -> sender.hasPermission("myplugin.admin"))
+    .then(LiteralArgumentBuilder.literal("start")
+        .executes(context -> {
+            Player player = (Player) context.getSource();
+            new GameCommand().startGame(player, new CommandContext(context));
+            return 1;
+        }))
+    .then(LiteralArgumentBuilder.literal("info")
+        .then(ArgumentBuilder.argument("player", EntityArgument.player())
+            .executes(context -> {
+                Player player = (Player) context.getSource();
+                Player target = context.getArgument("player", Player.class);
+                new GameCommand().playerInfo(player, new CommandContext(context));
+                return 1;
+            })));
+```
+
+---
+
+# 6. Event System
+
+## CorexListener
+
+**Purpose:** Replace scattered `@EventHandler` annotations with clean, isolated listener classes.
+
+**Key Features:**
+
+- Auto-registration
+- Event priority via method naming convention
+- Exception isolation
+- Method parameter type detection
+
+## Example Listener
+
+```java
+public class PlayerListener extends CorexListener {
+
+    // Standard event handler
+    public void onJoin(PlayerJoinEvent event) {
+        event.getPlayer().sendMessage("Welcome!");
+    }
+
+    // With priority (method name prefix)
+    public void highPriority onDeath(PlayerDeathEvent event) {
+        // Runs with EventPriority.HIGH
+    }
+
+    public void monitorAlways onMove(PlayerMoveEvent event) {
+        // Runs with EventPriority.MONITOR, ignoreCancelled = false
+    }
+
+    // Entity events
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player attacker) {
+            attacker.sendMessage("You hit something!");
+        }
+    }
+}
+```
+
+## Event Priority Prefixes
+
+| Prefix | EventPriority | ignoreCancelled |
+|--------|--------------|-----------------|
+| `lowest` | LOWEST | true |
+| `low` | LOW | true |
+| `normal` (default) | NORMAL | true |
+| `high` | HIGH | true |
+| `highest` | HIGHEST | true |
+| `monitor` | MONITOR | false |
+| `monitorAlways` | MONITOR | false |
+
+## Generated Listener Registration
+
+```java
+// Generated in CorexBootstrap.onEnable()
+PlayerListener playerListener = new PlayerListener();
+getServer().getPluginManager().registerEvents(playerListener, this);
+// Or with priority:
+getServer().getPluginManager().registerEvents(
+    new AnnotatedEventListener(playerListener), this);
+```
+
+## Exception Handling
+
+```java
+public class SafeListener extends CorexListener {
+
+    public void onJoin(PlayerJoinEvent event) {
+        try {
+            riskyOperation();
+        } catch (Exception e) {
+            // Corex wraps this in try-catch automatically
+            // Logs error, doesn't crash server
+            Corex.logger().severe("Error in onJoin: " + e.getMessage());
+        }
+    }
+}
+```
+
+---
+
+# 7. Entity System
+
+## CorexEntity
+
+**Purpose:** Manage custom entities without NMS code.
+
+**Key Features:**
+
+- PDC-based identification
+- Per-entity event routing
+- Custom model support
+- AI goal management (optional)
+- Spawn/despawn handling
+
+## EntityDefinition Annotation
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface EntityDefinition {
+    EntityType type();        // Base vanilla type
+    String id();              // Custom namespaced ID
+}
+```
+
+## Example Custom Entity
+
+```java
+@EntityDefinition(type = EntityType.ZOMBIE, id = "myplugin:mutant")
+public class MutantZombie extends CorexEntity {
+
+    @Override
+    public void onSpawn() {
+        // Called when entity spawns
+        setMaxHealth(100.0);
+        setHealth(100.0);
+        setSpeed(0.4);
+        setCustomName("§cMutant Zombie");
+        setCustomNameVisible(true);
+        
+        // Link to resource pack model
+        setCustomModel(CorexAssets.Models.MUTANT_ZOMBIE);
+    }
+
+    @Override
+    public void onTick() {
+        // Called every tick (use sparingly for performance)
+    }
+
+    @Override
+    public void onAttack(EntityDamageByEntityEvent event) {
+        event.setDamage(event.getDamage() * 1.5);
+    }
+
+    @Override
+    public void onDeath(EntityDeathEvent event) {
+        event.getDrops().clear();
+        event.getDrops().add(new ItemStack(Material.ROTTEN_FLESH, 5));
+        event.getDropExp(50);
+    }
+
+    @Override
+    public void onInteract(PlayerInteractEntityEvent event) {
+        event.getPlayer().sendMessage("You touched the mutant!");
+    }
+}
+```
+
+## Spawning Custom Entities
+
+```java
+// In any command or event
+Location spawnLoc = player.getLocation();
+MutantZombie entity = Corex.spawn(MutantZombie.class, spawnLoc);
+
+// Or with initial properties
+MutantZombie entity = Corex.spawn(MutantZombie.class, spawnLoc, zombie -> {
+    zombie.setVelocity(zombie.getVelocity().setY(1.0));
+});
+```
+
+## Under the Hood: PDC Tagging
+
+```java
+// Corex runtime tags spawned entities:
+NamespacedKey key = NamespacedKey.fromString("myplugin:entity_id");
+entity.getPersistentDataContainer().set(key, PersistentDataType.STRING, "mutant");
+
+// Global event listener routes events:
+@EventHandler
+public void onDamage(EntityDamageByEntityEvent event) {
+    String entityId = event.getDamager()
+        .getPersistentDataContainer()
+        .get(key, PersistentDataType.STRING);
+    
+    if (entityId != null) {
+        CorexEntity handler = CorexEntityRegistry.get(entityId);
+        if (handler != null) {
+            handler.routeEvent(event);
+        }
+    }
+}
+```
+
+## Performance Note
+
+Corex maintains ONE global listener per event type, not per entity. The PDC lookup is O(1) and only triggers for entities your plugin spawned.
+
+---
+
+# 8. Block System
+
+## CorexBlock
+
+**Purpose:** Create interactive custom blocks without entity-based workarounds.
+
+**Key Features:**
+
+- BlockState hijacking (no entity overhead)
+- Per-block event routing
+- Custom model support
+- Tool requirement
+- Hardness/resistance
+- Drop manipulation
+
+## BlockDefinition Annotation
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface BlockDefinition {
+    String id();              // Custom namespaced ID
+    BlockBase base();         // Hijacked vanilla block type
+}
+
+public enum BlockBase {
+    NOTE_BLOCK,        // Solid blocks (~800 variants)
+    TRIPWIRE,          // Transparent/wire blocks
+    MUSHROOM_BLOCK,    // Directional blocks
+    GRASS,             // Tallgrass/plants
+    CAKE,              // Sliceable blocks
+}
+```
+
+## Example Custom Block
+
+```java
+@BlockDefinition(id = "myplugin:uranium_ore", base = BlockBase.NOTE_BLOCK)
+public class UraniumOre extends CorexBlock {
+
+    public UraniumOre() {
+        // Links to src/resources/models/uranium_ore.json
+        model(CorexAssets.Models.URANIUM_ORE);
+        
+        hardness(5.0f);
+        blastResistance(30.0f);
+        requiredTool(ToolType.DIAMOND_PICKAXE);
+        soundGroup(BlockSoundGroup.STONE);
+    }
+
+    @Override
+    public void onPlace(BlockPlaceEvent event) {
+        event.getPlayer().sendMessage("§cWarning: High radiation!");
+    }
+
+    @Override
+    public void onBreak(BlockBreakEvent event) {
+        // Cancel vanilla drops
+        event.setDropItems(false);
+        
+        // Custom drop
+        ItemStack drop = CorexAssets.Items.RAW_URANIUM.create();
+        event.getBlock().getWorld().dropItemNaturally(
+            event.getBlock().getLocation(), drop);
+        
+        // XP
+        event.setExpToDrop(5);
+    }
+
+    @Override
+    public void onInteract(PlayerInteractEvent event) {
+        event.getPlayer().sendMessage("§eThe ore hums with energy.");
+    }
+
+    @Override
+    public void onStep(Player player) {
+        // Called when player stands on block (throttled)
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.WITHER, 60, 0));
+    }
+}
+```
+
+## BlockState Allocation Matrix
+
+| BlockBase | Hijacked Block | Max Variants | Use Case |
+|-----------|---------------|--------------|----------|
+| NOTE_BLOCK | Note Block | ~800 | Solid blocks, ores, machines |
+| TRIPWIRE | Tripwire | ~64 | Wires, barriers, glass |
+| MUSHROOM_BLOCK | Mushroom Stem | ~191 | Directional blocks, furniture |
+| GRASS | Tall Grass | ~16 | Plants, decorations |
+| CAKE | Cake (7 slices) | ~7 | Sliceable blocks |
+
+## BlockState Mapping
+
+The compiler allocates unique `(instrument, note, powered)` combinations:
+
+```
+CorexBlock ID: myplugin:uranium_ore
+Allocated State: instrument=BASS, note=5, powered=false
+
+CorexBlock ID: myplugin:plasma_block  
+Allocated State: instrument.BASEDRUM, note=12, powered=true
+```
+
+## Generated blockstates JSON
+
+```json
+{
+  "variants": {
+    "instrument=bass,note=5,powered=false": {
+      "model": "myplugin:block/uranium_ore"
+    },
+    "instrument=basedrum,note=12,powered=true": {
+      "model": "myplugin:block/plasma_block"
+    }
+  }
+}
+```
+
+## Event Interception
+
+```java
+// Corex global listener
+@EventHandler
+public void onBlockBreak(BlockBreakEvent event) {
+    if (event.getBlock().getType() == Material.NOTE_BLOCK) {
+        NoteBlock data = (NoteBlock) event.getBlock().getBlockData();
+        
+        CorexBlock block = CorexBlockRegistry.get(data);
+        if (block != null) {
+            block.onBreak(event);
+            event.setCancelled(true); // Cancel vanilla behavior
+            return;
+        }
+    }
+}
+```
+
+## Performance Characteristics
+
+| Approach | TPS Impact | Client FPS Impact |
+|----------|-----------|------------------|
+| Display Entities | Severe (1 entity = 1 tick) | Severe |
+| Corex BlockState Hijacking | Zero (block-like) | Minimal (baked mesh) |
+
+---
+
+# 9. Item System
+
+## CorexItem
+
+**Purpose:** Create custom items with models, lore, and behavior.
+
+## ItemDefinition Annotation
+
+```java
+@ItemDefinition(id = "myplugin:plasma_sword", base = Material.IRON_SWORD)
+public class PlasmaSword extends CorexItem {
+
+    public PlasmaSword() {
+        // Links to src/resources/models/plasma_sword.json
+        model(CorexAssets.Models.PLASMA_SWORD);
+        
+        name("<gradient:#ff5555:#ffff55>Plasma Sword</gradient>");
+        lore(
+            "§7A blade of unstable energy.",
+            "§eDeals 150% damage to mobs."
+        );
+        enchant(Enchantment.DAMAGE_ALL, 5);
+        hideAttributes();
+        unbreakable();
+    }
+
+    @Override
+    public void onRightClick(PlayerInteractEvent event) {
+        event.getPlayer().sendMessage("§bThe sword crackles with energy!");
+        // Launch projectile, apply effect, etc.
+    }
+
+    @Override
+    public void onHit(EntityDamageByEntityEvent event) {
+        event.setDamage(event.getDamage() * 1.5);
+    }
+}
+```
+
+## Creating Items at Runtime
+
+```java
+// Create from registered item
+ItemStack item = CorexAssets.Items.PLASMA_SWORD.create();
+
+// Create with custom amount
+ItemStack stack = CorexAssets.Items.PLASMA_SWORD.create(3);
+
+// Create with modifications
+ItemStack modified = CorexAssets.Items.PLASMA_SWORD.createWith(meta -> {
+    meta.setDisplayName("§cEnchanted " + Component.text("Plasma Sword"));
+});
+```
+
+---
+
+# 10. Biome & Worldgen System
+
+## CorexBiome
+
+**Purpose:** Define custom biomes in Java, generate datapack JSON automatically.
+
+## BiomeDefinition Annotation
+
+```java
+@BiomeDefinition(namespace = "myplugin", id = "radioactive_wasteland")
+public class RadioactiveWasteland extends CorexBiome {
+
+    public RadioactiveWasteland() {
+        // Climate
+        temperature(2.0f);
+        downfall(0.0f);
+        category(BiomeCategory.DESERT);
+
+        // Colors (hex format)
+        skyColor(0x324031);
+        fogColor(0x1A2419);
+        waterColor(0x527A52);
+        waterFogColor(0x2D422D);
+        grassColor(0x5E634D);
+        foliageColor(0x424535);
+
+        // Effects
+        ambientMood(AmbientMoodSettings.of(12345, 1.0, 2.0));
+        particle(ParticleTypes.ASH, 0.1f);
+
+        // Spawns
+        spawn(EntityType.ZOMBIE, SpawnGroup.MONSTER)
+            .weight(100).count(4, 6).delimeterBiomes();
+        spawn(EntityType.CREEPER, SpawnGroup.MONSTER)
+            .weight(50).count(1, 2);
+    }
+}
+```
+
+## CorexWorldgen
+
+**Purpose:** Define ore veins, features, and structures.
+
+## WorldgenDefinition Annotation
+
+```java
+@WorldgenDefinition(namespace = "myplugin")
+public class MyWorldgen extends CorexWorldgen {
+
+    public MyWorldgen() {
+        // Ore generation
+        ore("uranium_ore")
+            .block(CorexBlocks.URANIUM_ORE) // Links to CorexBlock
+            .veinSize(6)
+            .countPerChunk(12)
+            .heightRange(-32, 40)
+            .biomes("myplugin:radioactive_wasteland");
+
+        // Feature generation
+        feature("glowing_tree")
+            .type(Feature.TREE)
+            .placement(Placement.RANGE)
+            .height(5, 10)
+            .biomes("myplugin:radioactive_wasteland");
+    }
+}
+```
+
+## Generated Datapack Structure
+
+```
+myplugin-datapack.zip/
+├── pack.mcmeta
+└── data/
+    └── myplugin/
+        ├── worldgen/
+        │   ├── biome/
+        │   │   └── radioactive_wasteland.json
+        │   ├── configured_feature/
+        │   │   └── uranium_ore.json
+        │   ├── placed_feature/
+        │   │   └── uranium_ore.json
+        │   └── noise_settings/
+        │       └── myplugin_nether.json (if custom dimension)
+        ├── dimension/
+        │   └── myplugin_dimension.json
+        └── dimension_type/
+            └── myplugin_dimension_type.json
+```
+
+---
+
+# 11. Resource Pack System
+
+## Flat Folder Input
+
+```
+src/resources/
+├── models/
+│   ├── uranium_ore.json       # Blockbench export
+│   ├── plasma_sword.json      # Blockbench export
+│   └── mutant_zombie.json     # Blockbench export
+│
+├── textures/
+│   ├── uranium_ore.png
+│   ├── plasma_sword.png
+│   ├── mutant_zombie.png
+│   ├── uranium_block.png
+│   └── any_texture.png        # All textures in one folder
+│
+└── fonts/
+    ├── crownfall_logo.png     # 512x512 recommended
+    └── radiation_icon.png     # 32x32 recommended
+```
+
+## Compiler Processing
+
+1. **Scan** `src/resources/textures/`
+2. **Scan** `src/resources/models/`
+3. **Scan** `src/resources/fonts/`
+4. **Generate** proper Minecraft folder structure
+5. **Rewrite** Blockbench texture paths
+6. **Generate** item model overrides
+7. **Generate** blockstates
+8. **Generate** font JSON
+9. **Generate** `pack.mcmeta`
+10. **Zip** everything
+
+## Generated Resource Pack
+
+```
+MyPlugin-ResourcePack.zip/
+├── pack.mcmeta
+└── assets/
+    └── myplugin/
+        ├── models/
+        │   ├── block/
+        │   │   └── uranium_ore.json
+        │   └── item/
+        │       └── plasma_sword.json
+        ├── textures/
+        │   ├── block/
+        │   │   └── uranium_ore.png
+        │   └── item/
+        │       └── plasma_sword.png
+        └── font/
+            └── default.json
+```
+
+## Automatic Texture Path Rewriting
+
+Blockbench exports models with paths like:
+
+```json
+{
+  "textures": {
+    "particle": "minecraft:block/stone",
+    "layer0": "file/uranium_ore"
+  }
+}
+```
+
+Corex compiler rewrites to:
+
+```json
+{
+  "textures": {
+    "particle": "myplugin:block/uranium_ore",
+    "layer0": "myplugin:item/uranium_ore"
+  }
+}
+```
+
+## Deployment Options
+
+| Mode | Description | Pros | Cons |
+|------|-------------|------|------|
+| `local` | Built-in HTTP server | Automatic, no external hosting | Server resource usage |
+| `external` | User provides URL | Full control | Manual upload |
+| `manual` | Build zip only | Maximum flexibility | Manual deployment |
+| `disabled` | No resource pack | No client requirements | No custom textures |
+
+---
+
+# 12. Font System
+
+## Purpose
+
+Map PNG images to Unicode Private Use Area characters for UI elements, icons, and custom text rendering.
+
+## How It Works
+
+1. Drop PNG into `src/resources/fonts/`
+2. Compiler assigns Unicode: `radiation_icon.png` → `\uE000`
+3. Generated constant: `CorexAssets.Fonts.RADIATION_ICON = "\uE000"`
+4. Send in messages: `player.sendMessage(CorexAssets.Fonts.RADIATION_ICON + " Warning!")`
+
+## Font File Requirements
+
+| Type | Size | Recommended | Notes |
+|------|------|-------------|-------|
+| Icons | 32x32 | 32x32 | Sharp pixel art or vector-style |
+| Logos | Variable | 512x128 | Wide aspect ratio |
+| Banners | Variable | 512x512 | Square |
+
+## Generated Font JSON
+
+```json
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "myplugin:font/radiation_icon.png",
+      "ascent": 8,
+      "height": 32,
+      "chars": ["\uE000"]
+    },
+    {
+      "type": "bitmap",
+      "file": "myplugin:font/crownfall_logo.png",
+      "ascent": 32,
+      "height": 128,
+      "chars": ["\uE001"]
+    }
+  ]
+}
+```
+
+## Usage
+
+```java
+// Send with message
+player.sendMessage(CorexAssets.Fonts.RADIATION_ICON + " §cRadiation detected!");
+
+// Action bar
+player.sendActionBar(Component.text(CorexAssets.Fonts.CROWNFALL_LOGO));
+
+// Titles
+player.sendTitle(CorexAssets.Fonts.CROWNFALL_LOGO, "Subtitle", 10, 20, 10);
+
+// Scoreboard
+team.prefix(Component.text(CorexAssets.Fonts.RADIATION_ICON));
+```
+
+## Performance
+
+- Zero runtime overhead (native Minecraft font rendering)
+- No entity or packet overhead
+- GPU-accelerated text rendering
+
+---
+
+# 13. Data/Persistence System
+
+## CorexDataKey<T>
+
+**Purpose:** Type-safe wrapper for PersistentDataContainer.
+
+```java
+public class PlayerDataKeys {
+    public static final CorexDataKey<Integer> KILLS =
+        CorexDataKey.integer("myplugin:kills");
+
+    public static final CorexDataKey<String> TEAM =
+        CorexDataKey.string("myplugin:team");
+
+    public static final CorexDataKey<Double> BALANCE =
+        CorexDataKey.doubleKey("myplugin:balance");
+
+    public static final CorexDataKey<long[]> LAST_SEEN =
+        CorexDataKey.longArray("myplugin:last_seen");
+}
+```
+
+## Usage
+
+```java
+// Set value
+PlayerDataKeys.KILLS.set(player, 10);
+
+// Get value with fallback
+int kills = PlayerDataKeys.KILLS.get(player).orElse(0);
+
+// Update value atomically
+PlayerDataKeys.KILLS.update(player, old -> old + 1);
+
+// Remove value
+PlayerDataKeys.TEAM.remove(player);
+
+// Check existence
+boolean hasTeam = PlayerDataKeys.TEAM.has(player);
+```
+
+## CorexDataKey Implementation
+
+```java
+public class CorexDataKey<T> {
+    private final NamespacedKey key;
+    private final PersistentDataType<T, T> type;
+
+    public static CorexDataKey<Integer> integer(String id) {
+        return new CorexDataKey<>(id, PersistentDataType.INTEGER);
+    }
+
+    public static CorexDataKey<String> string(String id) {
+        return new CorexDataKey<>(id, PersistentDataType.STRING);
+    }
+
+    // ... more factory methods
+
+    public void set(Player player, T value) {
+        player.getPersistentDataContainer().set(key, type, value);
+    }
+
+    public Optional<T> get(Player player) {
+        return Optional.ofNullable(
+            player.getPersistentDataContainer().get(key, type));
+    }
+
+    public void update(Player player, Function<T, T> updater) {
+        T current = get(player).orElse(null);
+        T updated = updater.apply(current);
+        set(player, updated);
+    }
+}
+```
+
+---
+
+# 14. Task/Scheduler System
+
+## CorexTasks
+
+**Purpose:** Simplified, safe task scheduling with async/sync management.
+
+```java
+// Run async
+CorexTasks.async(() -> {
+    // Heavy computation, database access
+    String result = fetchData();
+    
+    // Sync back to main thread
+    CorexTasks.sync(() -> {
+        player.sendMessage("Data: " + result);
+    });
+});
+
+// Delayed task
+CorexTasks.sync()
+    .delay(20) // 1 second (20 ticks)
+    .run(() -> player.sendMessage("Delayed message!"));
+
+// Repeating task
+CorexTask task = CorexTasks.sync()
+    .repeat(60) // Every 3 seconds
+    .run(() -> {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.setLevel(p.getLevel() + 1);
+        }
+    });
+
+// Cancel task
+CorexTasks.cancel(task);
+```
+
+## Safety Features
+
+- Automatic async Bukkit API protection
+- Warning on unsafe operations
+- Automatic task cleanup on plugin disable
+
+---
+
+# 15. External API Integration
+
+## Vault Integration
+
+```java
+// Register dependency
+public class MyPlugin extends CorexPlugin {
+    @Override
+    public void onSetup() {
+        softDepend("Vault");
+    }
+}
+
+// Use safely
+@Command("bal")
+public class EconomyCommand extends CommandRouter {
+    private void checkBalance(Player sender, CommandContext ctx) {
+        Optional<Economy> economy = Corex.getProvider(Economy.class);
+        
+        if (economy.isEmpty()) {
+            sender.sendMessage("§cEconomy not available!");
+            return;
+        }
+        
+        double balance = economy.get().getBalance(sender);
+        sender.sendMessage("§aBalance: $" + balance);
+    }
+}
+```
+
+## PlaceholderAPI Integration
+
+### Ambient Parsing
+
+Every string sent through Corex automatically parses PAPI placeholders:
+
+```java
+player.sendMessage("Welcome %player_name%! Kills: %myplugin_kills%");
+```
+
+### Custom Placeholder Registration
+
+```java
+public class MyPlaceholders extends CorexPlaceholders {
+    public MyPlaceholders() {
+        super("myplugin"); // Registers %myplugin_...%
+
+        register("kills", player -> {
+            return String.valueOf(
+                PlayerDataKeys.KILLS.get(player).orElse(0));
+        });
+
+        register("balance", player -> {
+            Optional<Economy> eco = Corex.getProvider(Economy.class);
+            return eco.map(e -> "$" + e.getBalance(player))
+                      .orElse("N/A");
+        });
+    }
+}
+```
+
+## ProtocolLib Integration
+
+### Type-Safe Packet Listening
+
+```java
+public class MyPacketListener extends CorexPacketListener {
+    public MyPacketListener() {
+        intercept(PacketType.Play.Client.PLAYER_INPUT);
+    }
+
+    @Override
+    public void onReceive(PacketEvent event, CorexPacket packet) {
+        // Type-safe field access (no index guessing)
+        float sideways = packet.getFloat("xa");  // Modern MC
+        float forward = packet.getFloat("za");
+        boolean jumping = packet.getBoolean("isJumping");
+
+        if (jumping) {
+            event.getPlayer().sendMessage("Jump detected!");
+        }
+    }
+}
+```
+
+### CorexPacket Field Mapping
+
+The compiler generates version-specific mappings:
+
+```
+Modern MC (1.17+):
+  "xa" -> PlayerInput.X
+  "za" -> PlayerInput.Z
+  "isJumping" -> PlayerInput.Jump
+
+Legacy MC (1.8-1.16):
+  "strafe" -> WrapperPlayClientPlayerInput.Strafe
+  "forward" -> WrapperPlayClientPlayerInput.Forward
+```
+
+---
+
+# 16. Compiler Architecture
+
+## Build Pipeline Overview
+
+```
+[Source Code]     [Config Files]    [Asset Files]
+      │                  │                │
+      └──────────────────┼────────────────┘
+                         ▼
+              ┌─────────────────────┐
+              │   PROJECT LOAD      │
+              │  - Parse corex.yml  │
+              │  - Scan directories │
+              └──────────┬──────────┘
+                         ▼
+              ┌─────────────────────┐
+              │   ANNOTATION SCAN    │
+              │  - Find @Command     │
+              │  - Find @BlockDef    │
+              │  - Find @Key         │
+              │  - Find @EntityDef   │
+              │  - Find @BiomeDef    │
+              └──────────┬──────────┘
+                         ▼
+              ┌─────────────────────┐
+              │   ASSET PROCESSING   │
+              │  - Rewrite JSONs     │
+              │  - Allocate IDs      │
+              │  - Generate fonts    │
+              │  - Generate states   │
+              └──────────┬──────────┘
+                         ▼
+              ┌─────────────────────┐
+              │   CODE GENERATION    │
+              │  - CorexAssets       │
+              │  - Bootstrap         │
+              │  - Listeners         │
+              │  - plugin.yml        │
+              └──────────┬──────────┘
+                         ▼
+              ┌─────────────────────┐
+              │   JAVA COMPILATION   │
+              │  - Compile sources   │
+              │  - Shade dependencies│
+              └──────────┬──────────┘
+                         ▼
+              ┌─────────────────────┐
+              │   PACKAGING         │
+              │  - Build JAR         │
+              │  - Zip Resource Pack │
+              │  - Zip Datapack      │
+              └──────────┬──────────┘
+                         ▼
+              ┌─────────────────────┐
+              │      OUTPUT         │
+              │  - Plugin.jar        │
+              │  - ResourcePack.zip  │
+              │  - Datapack.zip      │
+              └─────────────────────┘
+```
+
+## Phase 1: Annotation Scanning
+
+Uses Java annotation processing or reflection-based pre-build scanning:
+
+```java
+// Scan for all CorexConfig subclasses
+for (Class<?> clazz : projectClasses) {
+    if (CorexConfig.class.isAssignableFrom(clazz) && !clazz.equals(CorexConfig.class)) {
+        CorexConfigDefinition def = clazz.getAnnotation(CorexConfigDefinition.class);
+        if (def != null) {
+            configs.add(new ConfigInfo(clazz, def.file()));
+        }
+    }
+}
+
+// Scan for commands
+for (Class<?> clazz : projectClasses) {
+    Command cmd = clazz.getAnnotation(Command.class);
+    if (CommandRouter.class.isAssignableFrom(clazz)) {
+        commands.add(new CommandInfo(clazz, cmd.value()));
+    }
+}
+```
+
+## Phase 2: Asset Processing
+
+### Blockbench JSON Rewriting
+
+```java
+public String rewriteTexturePaths(String json, String modelName) {
+    JsonObject model = JsonParser.parseString(json).getAsJsonObject();
+    JsonObject textures = model.getAsJsonObject("textures");
+    
+    for (String key : textures.keySet()) {
+        String texture = textures.get(key).getAsString();
+        
+        if (texture.startsWith("file/")) {
+            // Blockbench local file reference
+            String filename = texture.substring(5); // Remove "file/"
+            textures.addProperty(key, "myplugin:item/" + filename);
+        }
+    }
+    
+    return model.toString();
+}
+```
+
+### BlockState ID Allocation
+
+```java
+public BlockState allocateState(CorexBlockDefinition block) {
+    int id = currentId++;
+    
+    int instrumentIndex = id % NOTE_BLOCK_INSTRUMENTS.length;
+    int noteIndex = (id / NOTE_BLOCK_INSTRUMENTS.length) % 25;
+    boolean powered = (id / 500) % 2 == 1;
+    
+    return new BlockState(
+        NOTE_BLOCK_INSTRUMENTS[instrumentIndex],
+        noteIndex,
+        powered
+    );
+}
+```
+
+## Phase 3: Code Generation
+
+### CorexAssets Generation
+
+```java
+public void generateAssetsRegistry(List<AssetInfo> assets) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("package ").append(packageName).append(";\n\n");
+    sb.append("public final class CorexAssets {\n");
+    
+    // Models section
+    sb.append("    public static final class Models {\n");
+    for (AssetInfo asset : assets.filter(a -> a.type == AssetType.MODEL)) {
+        sb.append("        public static final CorexModel ")
+          .append(toConstantName(asset.name))
+          .append(" = new CorexModel(\"").append(asset.id).append("\");\n");
+    }
+    sb.append("    }\n");
+    
+    // Items section
+    sb.append("    public static final class Items {\n");
+    for (AssetInfo asset : assets.filter(a -> a.type == AssetType.ITEM)) {
+        sb.append("        public static final CorexItemRef ")
+          .append(toConstantName(asset.name))
+          .append(" = new CorexItemRef(\"").append(asset.id).append("\");\n");
+    }
+    sb.append("    }\n");
+    
+    // Fonts section
+    sb.append("    public static final class Fonts {\n");
+    for (FontInfo font : fonts) {
+        sb.append("        public static final String ")
+          .append(toConstantName(font.name))
+          .append(" = \"\\u").append(Integer.toHexString(font.unicode).toUpperCase())
+          .append("\";\n");
+    }
+    sb.append("    }\n");
+    
+    sb.append("}\n");
+    
+    writeFile("CorexAssets.java", sb.toString());
+}
+```
+
+### Bootstrap Generation
+
+```java
+public void generateBootstrap(List<CommandInfo> commands, 
+                              List<ListenerInfo> listeners,
+                              List<BlockInfo> blocks) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("package ").append(packageName).append(";\n\n");
+    sb.append("public final class CorexBootstrap extends JavaPlugin implements Listener {\n\n");
+    
+    // onEnable
+    sb.append("    @Override\n");
+    sb.append("    public void onEnable() {\n");
+    
+    // IConfig loading
+    sb.append("        loadConfigs();\n");
+    
+    // Listener registration
+    for (ListenerInfo listener : listeners) {
+        sb.append("        getServer().getPluginManager().registerEvents(")
+          .append("new Generated").append(listener.simpleName())
+          .append("(), this);\n");
+    }
+    
+    // Command registration
+    for (CommandInfo cmd : commands) {
+        sb.append("        registerCommand(new ").append(cmd.simpleName()).append("());\n");
+    }
+    
+    // Block registry initialization
+    sb.append("        CorexBlockRegistry.init();\n");
+    
+    sb.append("    }\n");
+    sb.append("}\n");
+    
+    writeFile("CorexBootstrap.java", sb.toString());
+}
+```
+
+## Phase 4: Build Execution
+
+```bash
+# CLI build
+corex build
+
+# Gradle build
+./gradlew corexBuild
+# or
+./gradlew build  # runs corexBuild as dependency
+```
+
+---
+
+# 17. Generated Output
+
+## Final File Structure
+
+```
+build/output/
+├── MyPlugin.jar                 # Paper plugin
+├── MyPlugin-ResourcePack.zip     # Client resource pack
+└── MyPlugin-Datapack.zip        # Server datapack (if applicable)
+```
+
+## Generated plugin.yml
+
+```yaml
+name: MyPlugin
+version: "1.0.0"
+main: org.example.myplugin.CorexBootstrap
+api-version: "1.21"
+authors:
+  - DeveloperName
+description: Plugin description
+softdepend:
+  - Vault
+  - PlaceholderAPI
+commands:
+  game:
+    description: Game commands
+    permission: myplugin.admin
+  team:
+    description: Team commands
+    permission: myplugin.player
+```
+
+## Generated JAR Contents
+
+```
+MyPlugin.jar
+├── org/example/myplugin/
+│   ├── CorexBootstrap.class      # Generated entry point
+│   ├── MyPlugin.class           # User's main class
+│   ├── GameConfig.class
+│   ├── GameCommand.class
+│   ├── PlayerListener.class
+│   ├── UraniumOre.class
+│   ├── MutantZombie.class
+│   └── GeneratedPlayerListener.class
+│
+├── org/example/myplugin/generated/
+│   ├── CorexAssets.class         # Asset registry
+│   ├── CorexBlockRegistry.class
+│   └── CorexEntityRegistry.class
+│
+├── org/example/myplugin/internal/
+│   └── (Shaded Corex runtime classes)
+│
+└── plugin.yml
+```
+
+## Runtime Performance
+
+| Component | TPS Impact | Memory Impact |
+|-----------|-----------|---------------|
+| Generated bootstrap | Zero | Negligible |
+| Event routing | Zero | Negligible |
+| Command parsing | Zero | Negligible |
+| Block registry | Zero | ~1KB per block type |
+| Entity registry | Zero | ~1KB per entity type |
+| Config system | Minimal (load only) | ~1KB per config |
+
+---
+
+# 18. Hot Reloading
+
+## What Can Be Hot Reloaded
+
+| Component | Hot Reloadable | Method |
+|-----------|---------------|--------|
+| Config files | Yes | `/corex reload` |
+| Resource pack | Yes | Rebuild + kick/re-send |
+| Datapack | Limited | World reload required |
+| Custom block settings | Yes | Chunk refresh packets |
+| Font glyphs | Yes | Rebuild + resource pack update |
+| Java code | No | Requires HotswapAgent/JRebel |
+
+## Reload Command Implementation
+
+```java
+@Command("corex")
+public class CorexCommand extends CommandRouter {
+    private void reloadPlugin(Player sender, CommandContext ctx) {
+        // 1. Save current state
+        Corex.saveAllConfigs();
+        
+        // 2. Clear registries
+        CorexBlockRegistry.clear();
+        CorexEntityRegistry.clear();
+        CorexPlaceholders.clear();
+        
+        // 3. Reload configs
+        Corex.reloadAllConfigs();
+        
+        // 4. Rebuild resource pack if needed
+        if (CorexConfig.resourcePackEnabled) {
+            CorexResourcePack.rebuild();
+            CorexResourcePack.notifyPlayers();
+        }
+        
+        // 5. Re-register components
+        CorexBlockRegistry.init();
+        
+        sender.sendMessage("§aCorex reloaded successfully!");
+    }
+}
+```
+
+## Resource Pack Refresh
+
+```java
+public void refreshResourcePack(Player player) {
+    // Option 1: Kick and re-send
+    player.kickPlayer(Component.text("Please rejoin to update resource pack."));
+    
+    // Option 2: Clear and resend (if supported)
+    player.setResourcePackStatus(null);
+    player.setResourcePack(
+        CorexResourcePack.getUrl(),
+        CorexResourcePack.getHash()
+    );
+}
+```
+
+## Chunk/Block Refresh
+
+```java
+public void refreshBlocks(Player player, Collection<Block> blocks) {
+    for (Block block : blocks) {
+        Chunk chunk = block.getChunk();
+        int x = chunk.getX();
+        int z = chunk.getZ();
+        
+        // Send chunk update packet
+        PacketContainer packet = ProtocolLibrary.getProtocolManager()
+            .createPacket(PacketType.Play.Server.SECTION_BLOCKS);
+        
+        // ... populate section block update ...
+        
+        ProtocolLibrary.getProtocolManager()
+            .sendServerPacket(player, packet);
+    }
+}
+```
+
+## Code Hot Reload (Development)
+
+For actual Java code reloading during development:
+
+```bash
+# Option 1: HotswapAgent
+java -javaagent:HotswapAgent.jar -XX:+AllowRedefinitionClasses ...
+
+# Option 2: JRebel (commercial)
+java -javaagent:jrebel.jar ...
+
+# Option 3: IDE Debug Mode
+# Set breakpoints, modify code, save, IDE auto-reloads
+```
+
+---
+
+# 19. Idiot-Proofing Guarantees
+
+## Compile-Time Safety
+
+| Problem | Corex Solution |
+|---------|----------------|
+| Missing texture | **Compile error** with exact file name |
+| Missing model | **Compile error** with reference |
+| Duplicate block ID | **Compile error** with conflict info |
+| Unused texture | **Warning** (not error) |
+| Invalid config value | **Warning + fallback** at runtime |
+| Missing external plugin | **Warning** at runtime, graceful handling |
+
+## Type Safety
+
+| Problem | Corex Solution |
+|---------|----------------|
+| Wrong config type | Logs warning, uses default |
+| Null sender for player command | Automatic error message |
+| Invalid player name | Automatic "not found" message |
+| Malformed MiniMessage tag | Auto-closes tags, never breaks chat |
+| Async Bukkit API call | Warns in dev mode |
+
+## Refactor Safety
+
+```java
+// Developer renames variable
+@Key("database.connection_string")
+public String mongoDatabaseConnection = "localhost:27017";
+
+// YAML key stays: "database.connection_string"
+// Default value stays: "localhost:27017"
+// No breakage!
+```
+
+## Validation Rules
+
+```java
+@Key("game.max_players")
+@Min(2)
+@Max(1000)
+public int maxPlayers = 100;
+
+@Key("game.server_name")
+@NotBlank
+@Length(min = 1, max = 32)
+public String serverName = "MyServer";
+
+@Key("database.enabled")
+public boolean databaseEnabled = true;
+
+// If user sets: max_players: 5000
+// Corex logs: "Value 5000 exceeds @Max(1000), using default 100"
+// Plugin continues
+```
+
+---
+
+# 20. Edge Cases & Handling
+
+## Configuration Edge Cases
+
+| Edge Case | Handling |
+|-----------|----------|
+| YAML file deleted | Recreates from defaults |
+| YAML corrupted | Logs error, uses defaults, attempts backup |
+| Type mismatch | Warning + default fallback |
+| Missing required field | Warning + default fallback |
+| Very large config | Async load, chunked save |
+| Concurrent access | Synchronized read/write |
+
+## Command Edge Cases
+
+| Edge Case | Handling |
+|-----------|----------|
+| Console runs player-only command | Auto-sends "Player only" message |
+| Invalid argument type | Auto-sends usage hint |
+| Player not found | Auto-sends "Player not found" message |
+| No permission | Auto-sends "No permission" message |
+| Too many arguments | Ignores extras, runs command |
+| Too few arguments | Sends usage hint |
+| Tab complete while typing | Async tab complete |
+
+## Entity Edge Cases
+
+| Edge Case | Handling |
+|-----------|----------|
+| Entity spawns in no-pvp zone | Check before spawning |
+| Entity attempts to damage null | Null check before routing |
+| Entity targets unloaded chunk | Queue target update |
+| Entity despawns mid-event | Check entity validity in handlers |
+| World unloads with entities | Despawn entities, save state |
+| Entity ID collision | PDC namespace prevents this |
+
+## Block Edge Cases
+
+| Edge Case | Handling |
+|-----------|----------|
+| BlockState allocation overflow | Error at compile time |
+| Chunk unloads with custom block | Store state in chunk tile (if needed) |
+| World regenerates | Datapack handles regeneration |
+| Note block instrument changes | Intercept all NoteBlock changes |
+| Redstone adjacent activation | Intercept block physics events |
+| Piston pushes custom block | Block piston if incompatible |
+
+## Resource Pack Edge Cases
+
+| Edge Case | Handling |
+|-----------|----------|
+| Player declines pack | Log, optionally kick |
+| Pack URL changes | Re-send to online players |
+| Pack hash mismatch | Force re-download |
+| Client cache issue | Clear hash, force update |
+| Large pack (50MB+) | Warning during build |
+| Missing pack.mcmeta | Generate default |
+
+## Network Edge Cases
+
+| Edge Case | Handling |
+|-----------|----------|
+| Resource pack download timeout | Increase timeout, retry |
+| Player disconnects during download | Cancel gracefully |
+| HTTP server port in use | Try next port, warn |
+| Slow download | Progress message to player |
+
+---
+
+# 21. Optimization Principles
+
+## Minimal Types
+
+Instead of creating specialized types for every variation:
+
+| Instead of this... | Use this... |
+|-------------------|-------------|
+| `StringConfigKey`, `IntConfigKey`, `BoolConfigKey` | `CorexDataKey<T>` |
+| `BlockClickHandler`, `BlockBreakHandler`, `BlockPlaceHandler` | Override methods |
+| `EntityDeathListener`, `EntityDamageListener` | Single `CorexEntity` class |
+| Separate `CustomBlock`, `CustomOre`, `CustomMachine` classes | One `CorexBlock` with configuration |
+| `PlayerCommand`, `ConsoleCommand`, `RemoteCommand` | Single `CommandRouter` with context checks |
+
+## Performance Patterns
+
+### Avoid Per-Block Entities
+
+```java
+// BAD: 1000 custom blocks = 1000 ticking entities
+public void spawnDisplayBlock(Location loc) {
+    Entity display = loc.getWorld().spawnEntity(loc, EntityType.ITEM_DISPLAY);
+    // ...
+}
+
+// GOOD: 1000 custom blocks = 1 registry entry + BlockState mapping
+@BlockDefinition(id = "myplugin:ore", base = BlockBase.NOTE_BLOCK)
+public class MyOre extends CorexBlock { }
+```
+
+### Throttle Frequent Events
+
+```java
+public class MyBlock extends CorexBlock {
+    // Throttle player step to once per 10 ticks (0.5 seconds)
+    private final Map<UUID, Long> stepCooldowns = new ConcurrentHashMap<>();
+
+    @Override
+    public void onStep(Player player) {
+        long last = stepCooldowns.getOrDefault(player.getUniqueId(), 0L);
+        if (System.currentTimeMillis() - last < 500) return;
+        stepCooldowns.put(player.getUniqueId(), System.currentTimeMillis());
+        
+        // Actual effect
+    }
+}
+```
+
+### Async Where Possible
+
+```java
+// All heavy operations async
+CorexTasks.async(() -> {
+    // Database queries
+    // File I/O
+    // Network requests
+    // Heavy computation
+    
+    // Only sync for player-facing operations
+    CorexTasks.sync(() -> {
+        player.sendMessage("Done!");
+    });
+});
+```
+
+### Batch Operations
+
+```java
+// Instead of 100 individual updates:
+for (Player player : players) {
+    PlayerDataKeys.SCORE.set(player, score);
+}
+
+// Batch to single PDC write:
+player.getPersistentDataContainer().set(batchKey, PersistentDataType.NBT, batchData);
+```
+
+---
+
+# 22. Developer Adoption Strategy
+
+## Marketing Positioning
+
+**Corex is not just a plugin library.** It's a complete development workflow that eliminates the tedious parts of Paper development:
+
+1. **Stop managing CustomModelData integers manually**
+2. **Stop writing Blockbench JSON structures by hand**
+3. **Stop maintaining plugin.yml by hand**
+4. **Stop writing datapack JSON by hand**
+5. **Stop guessing ProtocolLib packet indices**
+
+## The 5-Minute Demo
+
+1. Clone template repo
+2. Drop a texture in `src/resources/textures/`
+3. Create one `CorexItem` class
+4. Run `./gradlew corexBuild`
+5. See it work in-game
+
+```bash
+# One command setup
+git clone https://github.com/corex/template myproject
+cd myproject
+./gradlew corexDev
+```
+
+## Documentation Strategy
+
+| Content | Purpose |
+|---------|---------|
+| Quick Start Guide (5 min) | First impression |
+| Feature Comparison | Why switch from vanilla |
+| API Reference | Daily usage |
+| Cookbook Recipes | Common patterns |
+| Troubleshooting FAQ | Reduce support burden |
+| Video Tutorials | Visual learners |
+
+## Community Building
+
+| Channel | Purpose |
+|---------|---------|
+| Discord | Real-time support, announcements |
+| GitHub Discussions | Feature requests, Q&A |
+| SpigotMC Thread | Long-form documentation |
+| Reddit (r/admincraft) | Community reach |
+| YouTube Tutorials | Visual documentation |
+
+## Open Source Strategy
+
+1. **Full source available** on GitHub
+2. **MIT/Apache 2.0 license** (not GPL, to avoid restrictions)
+3. **Community contributions welcome**
+4. **Clear contribution guidelines**
+5. **Good first issues** tagged
+
+---
+
+# 23. Monetization Model
+
+## Open Core Strategy
+
+### Community Version (Free)
+
+- Full Corex framework
+- All basic features
+- Resource pack generation
+- Custom blocks (up to 50)
+- Custom biomes (up to 10)
+- Community support via GitHub
+
+### Premium Version ($15-30)
+
+- Unlimited custom blocks
+- Unlimited biomes
+- Advanced worldgen features
+- Priority support
+- Pre-made asset packs
+- Early access to new features
+- Commercial license (no GPL obligations)
+
+### Premium Services ($5-10/month)
+
+- Managed resource pack hosting
+- Automated updates
+- Dedicated support
+- Custom development requests
+
+## Distribution Channels
+
+| Platform | Purpose |
+|----------|---------|
+| GitHub | Open source, community |
+| Modrinth | Free plugins, visibility |
+| SpigotMC | Premium marketplace |
+| Polymart | Premium marketplace |
+| BuiltByBit | Premium marketplace |
+
+---
+
+# 24. Implementation Roadmap
+
+## Phase 1: Core Foundation (Weeks 1-4)
+
+### Core Types
+- [ ] `CorexPlugin` base class
+- [ ] `CorexConfig` with `@Key` mapping
+- [ ] Basic config file creation/loading/saving
+
+### Build System
+- [ ] Project structure parser
+- [ ] Annotation scanner
+- [ ] Code generator (Bootstrap, CorexAssets)
+- [ ] JAR packager
+
+**Deliverable:** Can build basic plugin with config
+
+## Phase 2: Commands (Weeks 5-6)
+
+- [ ] `CommandRouter` base class
+- [ ] Method reference routing
+- [ ] Brigadier tree generation
+- [ ] Tab completion
+- [ ] Permission handling
+
+**Deliverable:** Can register commands without boilerplate
+
+## Phase 3: Events (Weeks 7-8)
+
+- [ ] `CorexListener` base class
+- [ ] Auto-registration
+- [ ] Event priority naming convention
+- [ ] Exception handling
+
+**Deliverable:** Clean event listeners without @EventHandler
+
+## Phase 4: Entities (Weeks 9-10)
+
+- [ ] `CorexEntity` base class
+- [ ] `@EntityDefinition` annotation
+- [ ] PDC tagging system
+- [ ] Global event routing
+- [ ] `Corex.spawn()` helper
+
+**Deliverable:** Custom entities without NMS
+
+## Phase 5: Blocks (Weeks 11-12)
+
+- [ ] `CorexBlock` base class
+- [ ] `@BlockDefinition` annotation
+- [ ] BlockState allocation
+- [ ] Blockstates JSON generation
+- [ ] Event interception
+
+**Deliverable:** Custom blocks with zero entity overhead
+
+## Phase 6: Items (Week 13)
+
+- [ ] `CorexItem` base class
+- [ ] `@ItemDefinition` annotation
+- [ ] Item model generation
+- [ ] CustomModelData registry
+
+**Deliverable:** Custom items with models
+
+## Phase 7: Resource Pack (Weeks 14-15)
+
+- [ ] Flat folder scanner
+- [ ] Blockbench JSON rewriting
+- [ ] Resource pack ZIP generation
+- [ ] Deployment options (local/external/manual)
+
+**Deliverable:** Automatic resource pack from flat folders
+
+## Phase 8: Fonts (Week 16)
+
+- [ ] Font folder scanner
+- [ ] Unicode allocation
+- [ ] Font JSON generation
+- [ ] `CorexAssets.Fonts` constants
+
+**Deliverable:** Custom UI icons in chat
+
+## Phase 9: Biomes/Worldgen (Weeks 17-18)
+
+- [ ] `CorexBiome` base class
+- [ ] `@BiomeDefinition` annotation
+- [ ] Biome JSON generation
+- [ ] `CorexWorldgen` base class
+- [ ] Ore/feature generation
+
+**Deliverable:** Custom biomes from Java code
+
+## Phase 10: External Integrations (Week 19)
+
+- [ ] Vault provider helper
+- [ ] PlaceholderAPI ambient parsing
+- [ ] PlaceholderAPI custom expansion helper
+- [ ] ProtocolLib integration
+
+**Deliverable:** First-class external API support
+
+## Phase 11: Hot Reload & Polish (Week 20)
+
+- [ ] `/corex reload` command
+- [ ] Resource pack refresh
+- [ ] Config hot reload
+- [ ] Error handling polish
+- [ ] Documentation
+
+**Deliverable:** Production-ready release
+
+## Total Estimated Time
+
+| Phase | Duration |
+|-------|----------|
+| Phase 1-3 | 6 weeks |
+| Phase 4-6 | 5 weeks |
+| Phase 7-9 | 5 weeks |
+| Phase 10-11 | 2 weeks |
+| Testing & Polish | 2 weeks |
+| **Total** | **~20 weeks** (5 months) |
+
+---
+
+# 25. Complete Example Project
+
+## Project: Crownfall Mini
+
+A competitive team-based minigame plugin demonstrating Corex features.
+
+## Directory Structure
+
+```
+crownfall/
+├── corex.yml
+├── src/
+│   ├── java/com/crownfall/
+│   │   ├── CrownfallMain.java
+│   │   ├── CrownfallConfig.java
+│   │   ├── commands/
+│   │   │   ├── GameCommand.java
+│   │   │   └── TeamCommand.java
+│   │   ├── listeners/
+│   │   │   └── MatchListener.java
+│   │   ├── entities/
+│   │   │   └── MutantZombie.java
+│   │   ├── blocks/
+│   │   │   ├── UraniumOre.java
+│   │   │   └── EnergyCrystal.java
+│   │   ├── items/
+│   │   │   └── PlasmaSword.java
+│   │   ├── biomes/
+│   │   │   └── RadioactiveWasteland.java
+│   │   ├── placeholders/
+│   │   │   └── CrownfallPlaceholders.java
+│   │   └── systems/
+│   │       └── MatchManager.java
+│   │
+│   └── resources/
+│       ├── models/
+│       │   ├── uranium_ore.json
+│       │   ├── plasma_sword.json
+│       │   ├── mutant_zombie.json
+│       │   └── energy_crystal.json
+│       ├── textures/
+│       │   ├── uranium_ore.png
+│       │   ├── plasma_sword.png
+│       │   ├── mutant_zombie.png
+│       │   └── energy_crystal.png
+│       └── fonts/
+│           └── crownfall_logo.png
+```
+
+## corex.yml
+
+```yaml
+project:
+  name: Crownfall
+  mainClass: com.crownfall.CrownfallMain
+  version: "1.0.0"
+  minecraftVersion: "1.21"
+  paperApiVersion: "1.21"
+
+plugin:
+  authors:
+    - SoloCode
+  description: Crownfall competitive minigame
+  website: https://crownfall.example.com
+
+resourcePack:
+  enabled: true
+  deployment: local
+  local:
+    port: 8123
+    path: resourcepack
+  force: false
+  prompt: "This server uses the Crownfall resource pack."
+
+datapack:
+  enabled: true
+  autoInstall: true
+
+integrations:
+  placeholderAPI: true
+  vault: true
+
+compiler:
+  generatePluginYml: true
+  generateAssetsRegistry: true
+  failOnMissingTexture: true
+```
+
+## CrownfallMain.java
+
+```java
+package com.crownfall;
+
+public class CrownfallMain extends CorexPlugin {
+
+    @Override
+    public void onSetup() {
+        softDepend("Vault");
+        softDepend("PlaceholderAPI");
+        usePlaceholderAPI(true);
+        
+        // Initialize systems
+        new CrownfallPlaceholders();
+        
+        getLogger().info("Crownfall v" + getDescription().getVersion() + " enabled!");
+    }
+
+    @Override
+    public void onShutdown() {
+        MatchManager.getInstance().stopAllMatches();
+        getLogger().info("Crownfall disabled!");
+    }
+}
+```
+
+## CrownfallConfig.java
+
+```java
+package com.crownfall;
+
+public class CrownfallConfig extends CorexConfig {
+
+    @Key("match.min_players")
+    public int minPlayers = 4;
+
+    @Key("match.max_players")
+    public int maxPlayers = 24;
+
+    @Key("match.countdown_seconds")
+    public int countdownSeconds = 60;
+
+    @Key("match.duration_minutes")
+    public int matchDurationMinutes = 15;
+
+    @Key("match.start_cash")
+    public double startCash = 1000.0;
+
+    @Key("spawn.red_base")
+    public Location redBase;
+
+    @Key("spawn.blue_base")
+    public Location blueBase;
+
+    @Key("spawn.lobby")
+    public Location lobby;
+
+    @Key("economy.kill_reward")
+    public double killReward = 50.0;
+
+    @Key("economy.capture_reward")
+    public double captureReward = 100.0;
+
+    public CrownfallConfig() {
+        super("config");
+        // Set default spawns
+        if (lobby == null) {
+            lobby = new Location(
+                Bukkit.getWorlds().get(0), 0, 64, 0);
+        }
+    }
+}
+```
+
+## GameCommand.java
+
+```java
+package com.crownfall.commands;
+
+import org.bukkit.entity.Player;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+
+@Command("game")
+public class GameCommand extends CommandRouter {
+
+    public GameCommand() {
+        permission("crownfall.player");
+        
+        route("join").to(this::joinGame);
+        route("leave").to(this::leaveGame);
+        route("start").to(this::startGame)
+            .permission("crownfall.admin");
+        route("stop").to(this::stopGame)
+            .permission("crownfall.admin");
+        route("status").to(this::status);
+    }
+
+    private void joinGame(Player player, CommandContext ctx) {
+        if (MatchManager.getInstance().joinMatch(player)) {
+            player.sendMessage("§aJoined the match!");
+        } else {
+            player.sendMessage("§cMatch is full! Try again later.");
+        }
+    }
+
+    private void leaveGame(Player player, CommandContext ctx) {
+        if (MatchManager.getInstance().leaveMatch(player)) {
+            player.sendMessage("§eLeft the match.");
+        } else {
+            player.sendMessage("§cYou weren't in a match!");
+        }
+    }
+
+    private void startGame(Player player, CommandContext ctx) {
+        if (MatchManager.getInstance().startMatch()) {
+            player.sendMessage("§aMatch started!");
+        } else {
+            player.sendMessage("§cNot enough players to start!");
+        }
+    }
+
+    private void stopGame(Player player, CommandContext ctx) {
+        MatchManager.getInstance().stopAllMatches();
+        player.sendMessage("§cAll matches stopped!");
+    }
+
+    private void status(Player player, CommandContext ctx) {
+        MatchManager mm = MatchManager.getInstance();
+        player.sendMessage(Component.text("§7§m----------§r §6§lCrownfall Status §7§m----------")
+            .appendNewline()
+            .append(Component.text("Players: ")
+                .color(NamedTextColor.GRAY)
+                .append(Component.text(String.valueOf(mm.getPlayerCount()))
+                    .color(NamedTextColor.AQUA)))
+            .appendNewline()
+            .append(Component.text("Match Active: ")
+                .color(NamedTextColor.GRAY)
+                .append(Component.text(mm.isMatchActive() ? "Yes" : "No")
+                    .color(mm.isMatchActive() ? NamedTextColor.GREEN : NamedTextColor.RED)))
+            .appendNewline()
+            .append(Component.text("§7§m-----------------------------------------")));
+    }
+}
+```
+
+## TeamCommand.java
+
+```java
+package com.crownfall.commands;
+
+import org.bukkit.entity.Player;
+
+@Command("team")
+public class TeamCommand extends CommandRouter {
+
+    public TeamCommand() {
+        permission("crownfall.player");
+        
+        route("join <team>").to(this::joinTeam)
+            .tabComplete("team", (ctx, input) -> 
+                java.util.List.of("red", "blue"));
+        route("leave").to(this::leaveTeam);
+        route("list <team>").to(this::listTeam);
+    }
+
+    private void joinTeam(Player player, CommandContext ctx) {
+        String teamName = ctx.getString("team").toLowerCase();
+        
+        if (teamName.equals("red") || teamName.equals("blue")) {
+            if (MatchManager.getInstance().joinTeam(player, teamName)) {
+                player.sendMessage("§aJoined team " + teamName + "!");
+            } else {
+                player.sendMessage("§cTeam is full or match not active!");
+            }
+        } else {
+            player.sendMessage("§cInvalid team! Choose red or blue.");
+        }
+    }
+
+    private void leaveTeam(Player player, CommandContext ctx) {
+        if (MatchManager.getInstance().leaveTeam(player)) {
+            player.sendMessage("§eLeft your team.");
+        } else {
+            player.sendMessage("§cYou weren't on a team!");
+        }
+    }
+
+    private void listTeam(Player player, CommandContext ctx) {
+        String teamName = ctx.getString("team").toLowerCase();
+        // List team members
+        player.sendMessage("§6Team " + teamName + " members:");
+        // ... send member list
+    }
+}
+```
+
+## MatchListener.java
+
+```java
+package com.crownfall.listeners;
+
+import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+
+public class MatchListener extends CorexListener {
+
+    public void onDeath(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
+        
+        if (killer != null) {
+            MatchManager mm = MatchManager.getInstance();
+            
+            // Award killer
+            mm.addKill(killer);
+            
+            // Give reward
+            Corex.getProvider(net.milkbowl.vault.economy.Economy.class)
+                .ifPresent(econ -> {
+                    CrownfallConfig config = Corex.getConfig(CrownfallConfig.class);
+                    econ.depositPlayer(killer, config.killReward);
+                    killer.sendMessage("§a+" + config.killReward + " for the kill!");
+                });
+            
+            killer.sendMessage("§eYou eliminated %player_name%!");
+        }
+        
+        // Clear drops for custom entities
+        if (victim.getKiller() instanceof MutantZombie) {
+            event.getDrops().clear();
+        }
+    }
+
+    public void onQuit(PlayerQuitEvent event) {
+        MatchManager.getInstance().handleQuit(event.getPlayer());
+    }
+
+    public void onPvP(EntityDamageByEntityEvent event) {
+        if (event.getEntity() instanceof Player victim &&
+            event.getDamager() instanceof Player attacker) {
+            
+            // Team check
+            if (MatchManager.getInstance().sameTeam(victim, attacker)) {
+                event.setCancelled(true);
+                attacker.sendMessage("§cYou can't hurt teammates!");
+            }
+        }
+    }
+}
+```
+
+## UraniumOre.java
+
+```java
+package com.crownfall.blocks;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+
+@BlockDefinition(id = "crownfall:uranium_ore", base = BlockBase.NOTE_BLOCK)
+public class UraniumOre extends CorexBlock {
+
+    public UraniumOre() {
+        model(CorexAssets.Models.URANIUM_ORE);
+        hardness(5.0f);
+        blastResistance(30.0f);
+        requiredTool(ToolType.DIAMOND_PICKAXE);
+    }
+
+    @Override
+    public void onPlace(BlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        player.sendMessage("§c⚠ Warning: High radiation detected!");
+        
+        // Apply radiation effect
+        player.addPotionEffect(
+            new org.bukkit.potion.PotionEffect(
+                org.bukkit.potion.PotionEffectType.WITHER,
+                100, 0));
+    }
+
+    @Override
+    public void onBreak(BlockBreakEvent event) {
+        event.setDropItems(false);
+        
+        // Drop uranium item
+        event.getBlock().getWorld().dropItemNaturally(
+            event.getBlock().getLocation(),
+            CorexAssets.Items.RAW_URANIUM.create());
+        
+        // XP
+        event.setExpToDrop(10);
+        
+        // Reward player
+        Corex.getProvider(net.milkbowl.vault.economy.Economy.class)
+            .ifPresent(econ -> {
+                CrownfallConfig config = Corex.getConfig(CrownfallConfig.class);
+                econ.depositPlayer(event.getPlayer(), 5);
+            });
+    }
+
+    @Override
+    public void onInteract(PlayerInteractEvent event) {
+        event.getPlayer().sendMessage(
+            CorexAssets.Fonts.RADIATION_ICON + 
+            " §eThe ore pulses with unstable energy...");
+    }
+}
+```
+
+## EnergyCrystal.java
+
+```java
+package com.crownfall.blocks;
+
+import org.bukkit.Color;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.entity.Player;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+
+@BlockDefinition(id = "crownfall:energy_crystal", base = BlockBase.NOTE_BLOCK)
+public class EnergyCrystal extends CorexBlock {
+
+    private int interactionCount = 0;
+
+    public EnergyCrystal() {
+        model(CorexAssets.Models.ENERGY_CRYSTAL);
+        hardness(2.0f);
+        blastResistance(10.0f);
+        requiredTool(ToolType.IRON_PICKAXE);
+    }
+
+    @Override
+    public void onPlace(BlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        player.sendMessage("§b✦ A crystal hums to life!");
+        
+        // Spawn particles
+        event.getBlock().getWorld().playSound(
+            event.getBlock().getLocation(),
+            Sound.BLOCK_AMETHYST_BLOCK_CHIME,
+            1.0f, 2.0f);
+    }
+
+    @Override
+    public void onBreak(BlockBreakEvent event) {
+        event.setDropItems(false);
+        
+        // Dramatic effect
+        event.getBlock().getWorld().spawnParticle(
+            Particle.END_ROD,
+            event.getBlock().getLocation().add(0.5, 0.5, 0.5),
+            50, 0.5, 0.5, 0.5, 0.1);
+        
+        event.getBlock().getWorld().playSound(
+            event.getBlock().getLocation(),
+            Sound.ENTITY_WITHER_BREAK_BLOCK,
+            1.0f, 1.0f);
+        
+        // Reward based on interaction count
+        double reward = 10.0 + (interactionCount * 2.0);
+        Corex.getProvider(net.milkbowl.vault.economy.Economy.class)
+            .ifPresent(econ -> econ.depositPlayer(event.getPlayer(), reward));
+        
+        event.getPlayer().sendMessage("§b✦ Crystal shattered! Earned: $" + reward);
+    }
+
+    @Override
+    public void onInteract(PlayerInteractEvent event) {
+        interactionCount++;
+        
+        Player player = event.getPlayer();
+        event.getBlock().getWorld().spawnParticle(
+            Particle.ENCHANTED_HIT,
+            event.getBlock().getLocation().add(0.5, 0.5, 0.5),
+            10, 0.3, 0.3, 0.3, 0.05);
+        
+        event.getBlock().getWorld().playSound(
+            event.getBlock().getLocation(),
+            Sound.BLOCK_RESPAWN_ANCHOR_CHARGE,
+            0.5f, 2.0f);
+        
+        // Send fancy message
+        player.sendMessage(
+            "§b✦ " + CorexAssets.Fonts.CROWNFALL_LOGO + 
+            " §fCrystal resonance: §e" + interactionCount);
+    }
+}
+```
+
+## PlasmaSword.java
+
+```java
+package com.crownfall.items;
+
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+
+@ItemDefinition(id = "crownfall:plasma_sword", base = Material.IRON_SWORD)
+public class PlasmaSword extends CorexItem {
+
+    public PlasmaSword() {
+        model(CorexAssets.Models.PLASMA_SWORD);
+        name("<gradient:#ff5555:#ffff55>Plasma Sword</gradient>");
+        lore(
+            "§7A blade of unstable energy.",
+            "§eDeals 150% damage to enemies.",
+            "",
+            "§6Right-click§f: Launch energy burst"
+        );
+        enchant(Enchantment.DAMAGE_ALL, 5);
+        enchant(Enchantment.FIRE_ASPECT, 2);
+        hideAttributes();
+        unbreakable();
+    }
+
+    @Override
+    public void onRightClick(PlayerInteractEvent event) {
+        event.getPlayer().sendMessage(
+            CorexAssets.Fonts.CROWNFALL_LOGO + 
+            " §bPlasma burst launched!");
+        
+        // Launch projectile effect
+        event.getPlayer().getWorld().spawnParticle(
+            org.bukkit.Particle.END_ROD,
+            event.getPlayer().getLocation().add(0, 1.5, 0),
+            20, 0.5, 0.5, 0.5, 0.1);
+    }
+
+    @Override
+    public void onHit(EntityDamageByEntityEvent event) {
+        // 150% damage boost
+        event.setDamage(event.getDamage() * 1.5);
+    }
+}
+```
+
+## MutantZombie.java
+
+```java
+package com.crownfall.entities;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityTargetEvent;
+import org.bukkit.inventory.ItemStack;
+
+@EntityDefinition(type = EntityType.ZOMBIE, id = "crownfall:mutant")
+public class MutantZombie extends CorexEntity {
+
+    @Override
+    public void onSpawn() {
+        setMaxHealth(150.0);
+        setHealth(150.0);
+        setSpeed(0.35);
+        setCustomName("§c☣ Mutant Zombie");
+        setCustomNameVisible(true);
+        setCustomModel(CorexAssets.Models.MUTANT_ZOMBIE);
+        
+        // Add equipment
+        setHelmet(new ItemStack(Material.DIAMOND_HELMET));
+        setMainHand(new ItemStack(Material.IRON_SWORD));
+    }
+
+    @Override
+    public void onTarget(EntityTargetEvent event) {
+        if (event.getTarget() instanceof Player) {
+            Player target = (Player) event.getTarget();
+            target.sendMessage("§c☣ The Mutant has spotted you!");
+        }
+    }
+
+    @Override
+    public void onAttack(EntityDamageByEntityEvent event) {
+        if (event.getEntity() instanceof Player victim) {
+            // Apply poison
+            victim.addPotionEffect(
+                new org.bukkit.potion.PotionEffect(
+                    org.bukkit.potion.PotionEffectType.POISON,
+                    100, 1));
+            
+            // Fire effect
+            victim.setFireTicks(40);
+        }
+        
+        event.setDamage(event.getDamage() * 1.25);
+    }
+
+    @Override
+    public void onDeath(EntityDeathEvent event) {
+        event.getDrops().clear();
+        event.setDropExp(75);
+        
+        // Custom drop
+        event.getDrops().add(CorexAssets.Items.MUTANT_DNA.create());
+    }
+}
+```
+
+## RadioactiveWasteland.java
+
+```java
+package com.crownfall.biomes;
+
+@BiomeDefinition(namespace = "crownfall", id = "radioactive_wasteland")
+public class RadioactiveWasteland extends CorexBiome {
+
+    public RadioactiveWasteland() {
+        temperature(2.0f);
+        downfall(0.0f);
+        category(BiomeCategory.DESERT);
+
+        skyColor(0x324031);
+        fogColor(0x1A2419);
+        waterColor(0x527A52);
+        waterFogColor(0x2D422D);
+        grassColor(0x5E634D);
+        foliageColor(0x424535);
+
+        particle(ParticleTypes.ASH, 0.05f);
+
+        // Spawns
+        spawn(EntityType.ZOMBIE, SpawnGroup.MONSTER)
+            .weight(100).count(4, 6);
+        spawn(EntityType.CREEPER, SpawnGroup.MONSTER)
+            .weight(50).count(2, 4);
+        spawn(EntityType.SKELETON, SpawnGroup.MONSTER)
+            .weight(30).count(2, 3);
+        spawn(EntityType.MUTANT_ZOMBIE, SpawnGroup.MONSTER)
+            .weight(5).count(1, 2);
+    }
+}
+```
+
+## CrownfallPlaceholders.java
+
+```java
+package com.crownfall.placeholders;
+
+public class CrownfallPlaceholders extends CorexPlaceholders {
+
+    public CrownfallPlaceholders() {
+        super("crownfall");
+
+        register("kills", player -> {
+            return String.valueOf(
+                PlayerDataKeys.KILLS.get(player).orElse(0));
+        });
+
+        register("deaths", player -> {
+            return String.valueOf(
+                PlayerDataKeys.DEATHS.get(player).orElse(0));
+        });
+
+        register("team", player -> {
+            return MatchManager.getInstance()
+                .getPlayerTeam(player)
+                .map(t -> t.name())
+                .orElse("None");
+        });
+
+        register("balance", player -> {
+            return Corex.getProvider(net.milkbowl.vault.economy.Economy.class)
+                .map(e -> "$" + (int) e.getBalance(player))
+                .orElse("N/A");
+        });
+
+        register("match_players", player -> {
+            return String.valueOf(
+                MatchManager.getInstance().getPlayerCount());
+        });
+    }
+}
+```
+
+## PlayerDataKeys.java
+
+```java
+package com.crownfall.systems;
+
+public class PlayerDataKeys {
+    public static final CorexDataKey<Integer> KILLS =
+        CorexDataKey.integer("crownfall:kills");
+
+    public static final CorexDataKey<Integer> DEATHS =
+        CorexDataKey.integer("crownfall:deaths");
+
+    public static final CorexDataKey<String> TEAM =
+        CorexDataKey.string("crownfall:team");
+
+    public static final CorexDataKey<Long> MATCH_JOIN_TIME =
+        CorexDataKey.longKey("crownfall:match_join_time");
+}
+```
+
+## MatchManager.java
+
+```java
+package com.crownfall.systems;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Color;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.bukkit.scoreboard.DisplaySlot;
+import org.bukkit.scoreboard.Objective;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
+
+import java.util.*;
+
+public class MatchManager {
+
+    private static MatchManager instance;
+    private final Map<UUID, String> playerTeams = new HashMap<>();
+    private final Map<String, List<UUID>> teamMembers = new HashMap<>();
+    private boolean matchActive = false;
+    private int matchTime = 0;
+
+    public static MatchManager getInstance() {
+        if (instance == null) instance = new MatchManager();
+        return instance;
+    }
+
+    public boolean joinMatch(Player player) {
+        CrownfallConfig config = Corex.getConfig(CrownfallConfig.class);
+        
+        if (getPlayerCount() >= config.maxPlayers) {
+            return false;
+        }
+        
+        // Teleport to lobby
+        if (config.lobby != null) {
+            player.teleport(config.lobby);
+        }
+        
+        player.setGameMode(GameMode.ADVENTURE);
+        setupScoreboard(player);
+        
+        return true;
+    }
+
+    public boolean leaveMatch(Player player) {
+        if (playerTeams.containsKey(player.getUniqueId())) {
+            leaveTeam(player);
+        }
+        
+        player.setGameMode(GameMode.SURVIVAL);
+        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+        
+        return true;
+    }
+
+    public void handleQuit(Player player) {
+        if (matchActive) {
+            // Handle mid-match quit
+            addDeath(player);
+        }
+        leaveMatch(player);
+    }
+
+    public boolean joinTeam(Player player, String teamName) {
+        if (!matchActive) return false;
+        
+        // Leave current team
+        leaveTeam(player);
+        
+        // Add to new team
+        playerTeams.put(player.getUniqueId(), teamName);
+        teamMembers.computeIfAbsent(teamName, k -> new ArrayList<>())
+            .add(player.getUniqueId());
+        
+        // Set scoreboard team
+        Scoreboard sb = player.getScoreboard();
+        Team team = sb.getTeam(teamName);
+        if (team != null) {
+            team.addEntry(player.getName());
+        }
+        
+        // Teleport to base
+        CrownfallConfig config = Corex.getConfig(CrownfallConfig.class);
+        Location base = teamName.equals("red") ? 
+            config.redBase : config.blueBase;
+        if (base != null) {
+            player.teleport(base);
+        }
+        
+        // Update scoreboards
+        updateAllScoreboards();
+        
+        return true;
+    }
+
+    public boolean leaveTeam(Player player) {
+        String team = playerTeams.remove(player.getUniqueId());
+        if (team != null) {
+            List<UUID> members = teamMembers.get(team);
+            if (members != null) {
+                members.remove(player.getUniqueId());
+            }
+            
+            Scoreboard sb = player.getScoreboard();
+            Team sbTeam = sb.getTeam(team);
+            if (sbTeam != null) {
+                sbTeam.removeEntry(player.getName());
+            }
+            
+            updateAllScoreboards();
+            return true;
+        }
+        return false;
+    }
+
+    public boolean sameTeam(Player p1, Player p2) {
+        String t1 = playerTeams.get(p1.getUniqueId());
+        String t2 = playerTeams.get(p2.getUniqueId());
+        return t1 != null && t1.equals(t2);
+    }
+
+    public Optional<String> getPlayerTeam(Player player) {
+        return Optional.ofNullable(playerTeams.get(player.getUniqueId()));
+    }
+
+    public boolean startMatch() {
+        CrownfallConfig config = Corex.getConfig(CrownfallConfig.class);
+        
+        if (getPlayerCount() < config.minPlayers) {
+            return false;
+        }
+        
+        matchActive = true;
+        matchTime = config.matchDurationMinutes * 60 * 20; // Convert to ticks
+        
+        // Start countdown
+        CorexTasks.sync()
+            .repeat(20) // Every second
+            .run(() -> {
+                matchTime -= 20;
+                if (matchTime <= 0) {
+                    endMatch();
+                }
+            });
+        
+        return true;
+    }
+
+    public void stopAllMatches() {
+        matchActive = false;
+        
+        for (UUID uuid : new ArrayList<>(playerTeams.keySet())) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                leaveMatch(player);
+            }
+        }
+    }
+
+    private void endMatch() {
+        // Determine winner
+        String winner = determineWinner();
+        
+        for (UUID uuid : playerTeams.keySet()) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                player.sendMessage("§6§l═══════════════════════════════");
+                player.sendMessage("§eMatch Ended!");
+                player.sendMessage("§6Winner: §f" + winner);
+                player.sendMessage("§6§l═══════════════════════════════");
+                leaveMatch(player);
+            }
+        }
+        
+        matchActive = false;
+    }
+
+    private String determineWinner() {
+        // Simple: team with most kills
+        Map<String, Integer> teamKills = new HashMap<>();
+        for (Map.Entry<UUID, String> entry : playerTeams.entrySet()) {
+            teamKills.merge(entry.getValue(), 1, Integer::sum);
+        }
+        return teamKills.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .orElse("Draw");
+    }
+
+    public void addKill(Player player) {
+        int kills = PlayerDataKeys.KILLS.get(player).orElse(0);
+        PlayerDataKeys.KILLS.set(player, kills + 1);
+        updateAllScoreboards();
+    }
+
+    public void addDeath(Player player) {
+        int deaths = PlayerDataKeys.DEATHS.get(player).orElse(0);
+        PlayerDataKeys.DEATHS.set(player, deaths + 1);
+    }
+
+    private void setupScoreboard(Player player) {
+        Scoreboard sb = Bukkit.getScoreboardManager().getNewScoreboard();
+        
+        // Create objective
+        Objective obj = sb.registerNewObjective("crownfall", 
+            org.bukkit.boss.BarColor.YELLOW,
+            "§6§lCROWNFALL");
+        obj.setDisplaySlot(DisplaySlot.BELOW_NAME);
+        
+        // Create teams
+        Team red = sb.registerNewTeam("red");
+        red.setPrefix("§c[Red] ");
+        red.setColor(net.kyori.adventure.text.format.NamedTextColor.RED);
+        
+        Team blue = sb.registerNewTeam("blue");
+        blue.setPrefix("§9[Blue] ");
+        blue.setColor(net.kyori.adventure.text.format.NamedTextColor.BLUE);
+        
+        player.setScoreboard(sb);
+    }
+
+    private void updateAllScoreboards() {
+        for (UUID uuid : playerTeams.keySet()) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                updateScoreboard(player);
+            }
+        }
+    }
+
+    private void updateScoreboard(Player player) {
+        Scoreboard sb = player.getScoreboard();
+        
+        // Update objectives
+        Objective obj = sb.getObjective("crownfall");
+        if (obj != null) {
+            obj.displayName("§6§lCROWNFALL §7- " + 
+                (matchActive ? "§aLIVE" : "§cWAITING"));
+        }
+    }
+
+    public int getPlayerCount() {
+        return playerTeams.size();
+    }
+
+    public boolean isMatchActive() {
+        return matchActive;
+    }
+}
+```
+
+## Build & Deployment
+
+```bash
+# Build the project
+./gradlew corexBuild
+
+# Output:
+# build/output/
+# ├── Crownfall.jar
+# ├── Crownfall-ResourcePack.zip
+# └── Crownfall-Datapack.zip
+
+# Install:
+# 1. Copy Crownfall.jar to server/plugins/
+# 2. Copy Crownfall-Datapack.zip to world/datapacks/ (or auto-installed)
+# 3. Resource pack served automatically on port 8123
+# 4. Restart server
+```
+
+## Expected Runtime Performance
+
+| Metric | Value |
+|--------|-------|
+| Plugin load time | < 500ms |
+| Command registration | < 50ms |
+| Event listener count | 3 (one per event type used) |
+| Entity registries | 1 (shared global) |
+| Block registries | 1 (shared global) |
+| TPS impact | Zero (same as vanilla Paper) |
+| Memory per custom block | ~1KB |
+| Memory per custom entity | ~2KB |
+
+---
+
+# Conclusion
+
+This document provides a complete blueprint for building the Corex Framework. The design prioritizes:
+
+1. **Minimal developer cognitive load** — Only ~7 core types to understand
+2. **Compile-time safety** — Missing assets = compile error, never runtime crash
+3. **Runtime performance** — Zero overhead compared to vanilla Paper
+4. **Build-time power** — Complex JSON generation happens during build, not at runtime
+5. **Idiot-proofing** — Explicit annotations, graceful fallbacks, and validation
+
+The framework transforms complex Paper development workflows into clean, structured Java code while maintaining full compatibility with the existing PaperMC ecosystem.

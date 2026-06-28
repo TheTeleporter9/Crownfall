@@ -22,12 +22,14 @@ public class TroopManager {
 
     /*TODO:
        Sotre and manage all troops!!!!
-       1.Route Player commands (I.E attack, moveto, ect)
+       1.Route Player commands (I.E attack, move_to, ect)
        2.Handle Global updates (I.e, cleanup dead troops, remove empty troops, sync state)
        3.Handle eninty/troop mapping
        4.handle combat routing (Not combat logic, just who needs to deal damage to whom)
        5.Handle Selection system
      */
+
+
 
 
 }

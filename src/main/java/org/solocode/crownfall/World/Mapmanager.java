@@ -3,8 +3,8 @@ package org.solocode.crownfall.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
-import org.solocode.betterConfig.BetterConfig;
-import org.solocode.betterConfig.ConfigType;
+import org.solocode.Corex.config.BetterConfig;
+import org.solocode.Corex.config.ConfigType;
 import org.solocode.crownfall.World.biome.CustomBiome;
 import org.solocode.crownfall.World.map.GameMap;
 

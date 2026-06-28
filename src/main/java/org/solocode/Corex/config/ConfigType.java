@@ -1,4 +1,4 @@
-package org.solocode.betterConfig;
+package org.solocode.Corex.config;
 
 public enum ConfigType {
     Default,
