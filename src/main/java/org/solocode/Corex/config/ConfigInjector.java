@@ -1,44 +1,37 @@
 package org.solocode.Corex.config;
-import org.bukkit.configuration.ConfigurationSection;
 
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import org.bukkit.configuration.file.YamlConfiguration;
-import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Parameter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 public class ConfigInjector {
 
-    public static void inject(Object targetInstance, ConfigCore configCore) {
-        Class<?> clazz = targetInstance.getClass();
-        java.util.Set<String> filesToSave = new java.util.HashSet<>();
+    public static void inject(Object source, ConfigCore configCore) {
+        // If 'source' is already a Class object, use it directly. Otherwise, grab its class.
+        Class<?> clazz = (source instanceof Class<?>) ? (Class<?>) source : source.getClass();
+        // If 'source' is a Class object, we have no instance (it's static), so targetInstance is null.
+        Object targetInstance = (source instanceof Class<?>) ? null : source;
+
+        Set<String> filesToSave = new HashSet<>();
 
         for (Field field : clazz.getDeclaredFields()) {
             if (field.isAnnotationPresent(Config.class)) {
                 Config annotation = field.getAnnotation(Config.class);
-                String rawPath = annotation.value();
+                String fullPath = annotation.value();
 
-                String fileName;
-                String configPath;
+                int firstDot = fullPath.indexOf('.');
+                if (firstDot == -1) continue;
 
-                // --- PATH PARSING LOGIC ---
-                if (rawPath.isEmpty()) {
-                    // Scenario 3: Nothing provided -> Default file, Variable name
-                    fileName = "config";
-                    configPath = field.getName();
-                } else {
-                    int firstDot = rawPath.indexOf('.');
-                    if (firstDot == -1) {
-                        // Scenario 2: Path provided but NO dot -> Default file, Specified name
-                        fileName = "config";
-                        configPath = rawPath;
-                    } else {
-                        // Scenario 1: standard "filename.path"
-                        fileName = rawPath.substring(0, firstDot);
-                        configPath = rawPath.substring(firstDot + 1);
-                    }
-                }
+                String fileName = fullPath.substring(0, firstDot);
+                String configPath = fullPath.substring(firstDot + 1);
 
-                // Make sure the parsed file is registered in the backend
                 if (!configCore.exists(fileName)) {
                     configCore.createConfig(ConfigType.Custom, fileName);
                 }
@@ -47,66 +40,78 @@ public class ConfigInjector {
                 field.setAccessible(true);
 
                 try {
-                    if (yaml.contains(configPath)) {
-                        Object value = yaml.get(configPath);
-                        if (value != null) {
-                            field.set(targetInstance, value);
+                    // AUTOMATIC COMPLEX TYPE HANDLING (Maps of Objects)
+                    if (Map.class.isAssignableFrom(field.getType())) {
+                        ConfigurationSection section = yaml.getConfigurationSection(configPath);
+                        if (section != null) {
+                            ParameterizedType mapType = (ParameterizedType) field.getGenericType();
+                            Class<?> valueClass = (Class<?>) mapType.getActualTypeArguments()[1];
+
+                            Map<String, Object> automaticallyFilledMap = new HashMap<>();
+
+                            for (String key : section.getKeys(false)) {
+                                ConfigurationSection itemSection = section.getConfigurationSection(key);
+                                if (itemSection == null) continue;
+
+                                Object item = autoMapSection(valueClass, itemSection);
+                                if (item != null) {
+                                    automaticallyFilledMap.put(key.toLowerCase(), item);
+                                }
+                            }
+                            // Safe injection for static or instance fields
+                            field.set(targetInstance, automaticallyFilledMap);
                         }
-                    } else {
-                        Object javaDefaultValue = field.get(targetInstance);
-                        if (javaDefaultValue != null) {
-                            configCore.addDefault(fileName, configPath, javaDefaultValue);
-                            filesToSave.add(fileName);
+                    }
+                    // STANDARD SIMPLE TYPE HANDLING (Primitives, Strings, Booleans)
+                    else {
+                        if (yaml.contains(configPath)) {
+                            Object value = yaml.get(configPath);
+                            if (value != null) {
+                                // Safe injection for static or instance fields
+                                field.set(targetInstance, value);
+                            }
+                        } else {
+                            Object javaDefaultValue = field.get(targetInstance);
+                            if (javaDefaultValue != null) {
+                                configCore.addDefault(fileName, configPath, javaDefaultValue);
+                                filesToSave.add(fileName);
+                            }
                         }
                     }
                 } catch (Exception e) {
-                    System.err.println("[Corex] Failed to process field " + field.getName() + ": " + e.getMessage());
+                    System.err.println("[Corex] Failed to process automated field " + field.getName() + ": " + e.getMessage());
                 }
             }
         }
 
-        // Asynchronously save any configuration files that had new defaults injected
         for (String fileName : filesToSave) {
             configCore.saveConfig(fileName);
         }
     }
 
-    /**
-     * Specialized injection helper that maps a localized Bukkit ConfigurationSection
-     * directly into an object instance (ignoring file name prefixes).
-     */
-    public static void injectFromSection(Object targetInstance, org.bukkit.configuration.ConfigurationSection section, ConfigCore configCore) {
-        Class<?> clazz = targetInstance.getClass();
+    private static Object autoMapSection(Class<?> clazz, ConfigurationSection section) throws Exception {
+        Constructor<?>[] constructors = clazz.getConstructors();
+        if (constructors.length == 0) return null;
+        Constructor<?> constructor = constructors[0];
 
-        for (Field field : clazz.getDeclaredFields()) {
-            if (field.isAnnotationPresent(Config.class)) {
-                Config annotation = field.getAnnotation(Config.class);
-                String configPath = annotation.value();
+        Parameter[] parameters = constructor.getParameters();
+        Object[] args = new Object[parameters.length];
 
-                // If they provided a full path with a dot, strip it down to the last element for sections
-                if (configPath.contains(".")) {
-                    configPath = configPath.substring(configPath.lastIndexOf('.') + 1);
-                }
+        for (int i = 0; i < parameters.length; i++) {
+            Parameter param = parameters[i];
+            String paramName = param.getName();
+            String configKey = paramName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase();
 
-                field.setAccessible(true);
-
-                try {
-                    if (section.contains(configPath)) {
-                        Object value = section.get(configPath);
-                        if (value != null) {
-                            field.set(targetInstance, value);
-                        }
-                    } else {
-                        // Save default fallback values back into the live dynamic section structure
-                        Object javaDefaultValue = field.get(targetInstance);
-                        if (javaDefaultValue != null) {
-                            section.set(configPath, javaDefaultValue);
-                        }
-                    }
-                } catch (Exception e) {
-                    System.err.println("[Corex] Failed to loop section field " + field.getName() + ": " + e.getMessage());
-                }
+            if (section.contains(configKey)) {
+                args[i] = section.get(configKey);
+            } else if (configKey.equals("id") || configKey.equals("key")) {
+                args[i] = section.getName();
+            } else {
+                if (param.getType() == boolean.class) args[i] = false;
+                else if (param.getType() == int.class) args[i] = 0;
+                else args[i] = "#FFFFFF";
             }
         }
+        return constructor.newInstance(args);
     }
 }

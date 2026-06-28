@@ -41,12 +41,15 @@ public class ConfigCore implements IConfig {
      */
     public <T> T init(Class<T> configClass) {
         try {
-            T instance = configClass.getDeclaredConstructor().newInstance();
+            T instance = null;
+            try {
+                instance = configClass.getDeclaredConstructor().newInstance();
+            } catch (NoSuchMethodException e) {
+            }
 
-            ConfigInjector.inject(instance, this);
+            ConfigInjector.inject(instance != null ? instance : configClass, this);
 
             return instance;
-
         } catch (Exception e) {
             throw new RuntimeException("Corex failed to initialize config class: " + configClass.getName(), e);
         }
